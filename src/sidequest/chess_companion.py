@@ -60,7 +60,7 @@ class CompanionWindow:
                     executable,
                     f"--app={url}",
                     f"--user-data-dir={self._profile.name}",
-                    "--window-size=780,650",
+                    "--window-size=768,650",
                     "--no-first-run",
                     "--no-default-browser-check",
                 ],
