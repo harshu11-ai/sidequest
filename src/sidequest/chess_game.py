@@ -128,6 +128,8 @@ class ComputerChessGame:
         if normalized not in _DIFFICULTIES:
             raise ValueError(f"unsupported difficulty: {difficulty}")
         with self._lock:
+            if self._last_move is not None:
+                raise ValueError("difficulty can only be set before the first move")
             self._difficulty = normalized
             self._save()
             return self._snapshot_unlocked()

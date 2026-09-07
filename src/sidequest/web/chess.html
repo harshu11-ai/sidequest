@@ -12,32 +12,34 @@
     <main>
       <header>
         <div>
-          <p class="eyebrow">PROMPT ARCADE</p>
+          <p class="eyebrow">SIDEQUEST</p>
           <h1>Your agent is working</h1>
         </div>
-        <button id="new-game" class="secondary" type="button">New game</button>
       </header>
 
       <section class="game">
         <div id="board" class="board-shell" aria-label="Chess board"></div>
-        <aside aria-label="Game controls">
-          <div class="turn-indicator"><span id="turn-dot"></span><span id="status">Loading…</span></div>
-          <p class="side-note">You play White</p>
-          <dl>
-            <dt>Opponent</dt>
-            <dd id="engine">Local engine</dd>
-            <dt><label for="difficulty">Difficulty</label></dt>
-            <dd>
-              <select id="difficulty" aria-label="Opponent difficulty">
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            </dd>
-          </dl>
-          <p id="message" class="message" aria-live="polite"></p>
-          <button id="return" type="button">Return to work</button>
-        </aside>
+        <div class="side-column">
+          <button id="new-game" class="secondary" type="button">New game</button>
+          <aside aria-label="Game controls">
+            <div class="turn-indicator"><span id="turn-dot"></span><span id="status">Loading…</span></div>
+            <p class="side-note">You play White</p>
+            <dl>
+              <dt>Opponent</dt>
+              <dd id="engine">Local engine</dd>
+              <dt><label for="difficulty">Difficulty</label></dt>
+              <dd>
+                <select id="difficulty" aria-label="Opponent difficulty">
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </dd>
+            </dl>
+            <p id="message" class="message" aria-live="polite"></p>
+            <button id="return" type="button">Return to work</button>
+          </aside>
+        </div>
       </section>
     </main>
 

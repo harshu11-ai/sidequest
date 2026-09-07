@@ -19,8 +19,32 @@ class LifecycleTests(unittest.TestCase):
         companion.show.assert_not_called()
 
         lifecycle.child_output(b"Ask Codex to do anything")
-        lifecycle.user_input(b"\r")
+        lifecycle.user_input(b"fix the bug\r")
         companion.show.assert_called_once_with()
+
+    def test_codex_blank_enter_does_not_open_companion(self) -> None:
+        """A bare Enter (dismissing a dialog, an accidental keystroke, ...)
+        after the placeholder has ever been drawn must not be mistaken for a
+        submitted prompt."""
+        companion = Mock()
+        lifecycle = AgentLifecycle(companion, watch_codex_input=True)
+
+        lifecycle.child_output(b"Ask Codex to do anything")
+        lifecycle.user_input(b"\r")
+        companion.show.assert_not_called()
+
+        lifecycle.user_input(b"now a real prompt\r")
+        companion.show.assert_called_once_with()
+
+    def test_codex_backspacing_to_empty_does_not_open_companion(self) -> None:
+        companion = Mock()
+        lifecycle = AgentLifecycle(companion, watch_codex_input=True)
+
+        lifecycle.child_output(b"Ask Codex to do anything")
+        lifecycle.user_input(b"oops")
+        lifecycle.user_input(b"\x7f\x7f\x7f\x7f")
+        lifecycle.user_input(b"\r")
+        companion.show.assert_not_called()
 
     def test_claude_input_does_not_use_enter_fallback(self) -> None:
         companion = Mock()

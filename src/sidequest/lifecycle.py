@@ -29,14 +29,23 @@ class AgentLifecycle:
         self._watch_codex_input = watch_codex_input
         self._codex_prompt_ready = False
         self._output_tail = b""
+        self._typed_length = 0
 
     def user_input(self, data: bytes) -> None:
-        if (
-            self._watch_codex_input
-            and self._codex_prompt_ready
-            and (b"\r" in data or b"\n" in data)
-        ):
-            self.companion.show()
+        if not self._watch_codex_input or not self._codex_prompt_ready:
+            return
+        visible = _ANSI_SEQUENCE.sub(b"", data)
+        for byte in visible:
+            if byte in (0x0D, 0x0A):
+                if self._typed_length > 0:
+                    self.companion.show()
+                self._typed_length = 0
+            elif byte in (0x08, 0x7F):
+                self._typed_length = max(0, self._typed_length - 1)
+            elif byte >= 0x20:
+                self._typed_length += 1
+            # other control bytes (Tab, Ctrl+C, arrow-key remnants, ...) don't
+            # count as typed content and don't clear it either.
 
     def child_output(self, data: bytes) -> None:
         combined = self._output_tail + data
