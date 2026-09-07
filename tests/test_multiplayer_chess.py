@@ -175,7 +175,9 @@ class RemoteChessGameTests(unittest.TestCase):
 
         game.start_polling(interval=0.01)
         try:
-            time.sleep(0.05)
+            deadline = time.monotonic() + 2.0
+            while relay.get_state.call_count < 2 and time.monotonic() < deadline:
+                time.sleep(0.01)
             self.assertGreaterEqual(relay.get_state.call_count, 2)
         finally:
             game.stop_polling()
