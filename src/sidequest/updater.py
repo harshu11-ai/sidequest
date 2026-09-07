@@ -10,9 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-PACKAGE_NAME = "cli-autocorrect"
-EXECUTABLE_NAME = "cauto"
-UPDATE_SOURCE = "git+https://github.com/harshu11-ai/CLI-Autocorrect.git"
+PACKAGE_NAME = "sidequest"
+LEGACY_PACKAGE_NAME = "cli-autocorrect"
+EXECUTABLE_NAMES = {"sidequest", "cauto"}
+UPDATE_SOURCE = "git+https://github.com/harshu11-ai/sidequest.git"
 
 
 class UpdateError(RuntimeError):
@@ -91,7 +92,10 @@ def _find_active_installation(listing: dict[str, Any]) -> _PipxInstallation:
         if not isinstance(metadata, dict):
             continue
         package = metadata.get("main_package")
-        if not isinstance(package, dict) or _normalize_name(package.get("package")) != PACKAGE_NAME:
+        if not isinstance(package, dict) or _normalize_name(package.get("package")) not in {
+            PACKAGE_NAME,
+            LEGACY_PACKAGE_NAME,
+        }:
             continue
 
         app_paths = package.get("app_paths")
@@ -99,7 +103,7 @@ def _find_active_installation(listing: dict[str, Any]) -> _PipxInstallation:
             continue
         for encoded_path in app_paths:
             app_path = _decode_path(encoded_path)
-            if app_path is None or app_path.name != EXECUTABLE_NAME:
+            if app_path is None or app_path.name not in EXECUTABLE_NAMES:
                 continue
             if app_path.resolve().parent.parent != active_environment:
                 continue

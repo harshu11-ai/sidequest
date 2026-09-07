@@ -3,10 +3,10 @@ import subprocess
 import unittest
 from unittest.mock import call, patch
 
-from cli_autocorrect.updater import UPDATE_SOURCE, UpdateError, update_with_pipx
+from sidequest.updater import UPDATE_SOURCE, UpdateError, update_with_pipx
 
 PIPX = "/usr/local/bin/pipx"
-ACTIVE_ENVIRONMENT = "/example/pipx/venvs/cli-autocorrect"
+ACTIVE_ENVIRONMENT = "/example/pipx/venvs/sidequest"
 APP_PATH = f"{ACTIVE_ENVIRONMENT}/bin/cauto"
 
 
@@ -14,11 +14,11 @@ def pipx_listing(version: str = "0.2.1", app_path: object = APP_PATH) -> str:
     return json.dumps(
         {
             "venvs": {
-                "cli-autocorrect": {
+                "sidequest": {
                     "metadata": {
                         "main_package": {
                             "app_paths": [{"__Path__": app_path}],
-                            "package": "cli_autocorrect",
+                            "package": "sidequest",
                             "package_version": version,
                         }
                     }
@@ -33,9 +33,9 @@ def completed(stdout: str = "", stderr: str = "", returncode: int = 0):
 
 
 class UpdaterTests(unittest.TestCase):
-    @patch("cli_autocorrect.updater.sys.prefix", ACTIVE_ENVIRONMENT)
-    @patch("cli_autocorrect.updater.shutil.which", return_value=PIPX)
-    @patch("cli_autocorrect.updater.subprocess.run")
+    @patch("sidequest.updater.sys.prefix", ACTIVE_ENVIRONMENT)
+    @patch("sidequest.updater.shutil.which", return_value=PIPX)
+    @patch("sidequest.updater.subprocess.run")
     def test_force_reinstalls_active_pipx_environment(self, run, _which) -> None:
         run.side_effect = [
             completed(stdout=pipx_listing("0.2.1")),
@@ -56,14 +56,14 @@ class UpdaterTests(unittest.TestCase):
             ],
         )
 
-    @patch("cli_autocorrect.updater.shutil.which", return_value=None)
+    @patch("sidequest.updater.shutil.which", return_value=None)
     def test_requires_pipx(self, _which) -> None:
         with self.assertRaisesRegex(UpdateError, "pipx is not available"):
             update_with_pipx()
 
-    @patch("cli_autocorrect.updater.sys.prefix", "/example/project/.venv")
-    @patch("cli_autocorrect.updater.shutil.which", return_value=PIPX)
-    @patch("cli_autocorrect.updater.subprocess.run")
+    @patch("sidequest.updater.sys.prefix", "/example/project/.venv")
+    @patch("sidequest.updater.shutil.which", return_value=PIPX)
+    @patch("sidequest.updater.subprocess.run")
     def test_refuses_non_pipx_environment(self, run, _which) -> None:
         run.return_value = completed(stdout=pipx_listing())
 
@@ -77,9 +77,9 @@ class UpdaterTests(unittest.TestCase):
             text=True,
         )
 
-    @patch("cli_autocorrect.updater.sys.prefix", ACTIVE_ENVIRONMENT)
-    @patch("cli_autocorrect.updater.shutil.which", return_value=PIPX)
-    @patch("cli_autocorrect.updater.subprocess.run")
+    @patch("sidequest.updater.sys.prefix", ACTIVE_ENVIRONMENT)
+    @patch("sidequest.updater.shutil.which", return_value=PIPX)
+    @patch("sidequest.updater.subprocess.run")
     def test_reports_failed_reinstall(self, run, _which) -> None:
         run.side_effect = [
             completed(stdout=pipx_listing()),
@@ -89,8 +89,8 @@ class UpdaterTests(unittest.TestCase):
         with self.assertRaisesRegex(UpdateError, "pipx exited with status 9"):
             update_with_pipx()
 
-    @patch("cli_autocorrect.updater.shutil.which", return_value=PIPX)
-    @patch("cli_autocorrect.updater.subprocess.run")
+    @patch("sidequest.updater.shutil.which", return_value=PIPX)
+    @patch("sidequest.updater.subprocess.run")
     def test_rejects_invalid_pipx_metadata(self, run, _which) -> None:
         run.return_value = completed(stdout="not json")
 

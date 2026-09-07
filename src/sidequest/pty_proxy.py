@@ -12,11 +12,11 @@ import sys
 import termios
 import time
 import tty
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 
-from cli_autocorrect.corrector import CorrectionEngine
-from cli_autocorrect.input_processor import InputProcessor
+from sidequest.corrector import CorrectionEngine
+from sidequest.input_processor import InputProcessor
 
 
 class TerminalRequiredError(RuntimeError):
@@ -28,6 +28,8 @@ def run_in_pty(
     *,
     corrections: bool = True,
     corrector: CorrectionEngine | None = None,
+    on_user_input: Callable[[bytes], None] | None = None,
+    on_child_output: Callable[[bytes], None] | None = None,
 ) -> int:
     """Run *command* in a child PTY and proxy the current terminal to it."""
     if not command:
@@ -40,7 +42,7 @@ def run_in_pty(
         try:
             os.execvp(command[0], list(command))
         except OSError as error:
-            message = f"cauto: unable to launch {command[0]}: {error}\n"
+            message = f"sidequest: unable to launch {command[0]}: {error}\n"
             with suppress(OSError):
                 os.write(sys.stderr.fileno(), message.encode("utf-8", errors="replace"))
             os._exit(127)
@@ -84,6 +86,8 @@ def run_in_pty(
                     raise
                 if not child_output:
                     break
+                if on_child_output is not None:
+                    on_child_output(child_output)
                 _write_all(stdout_fd, child_output)
 
             if stdin_fd in readable:
@@ -91,6 +95,8 @@ def run_in_pty(
                 if not user_input:
                     _terminate_child(child_pid)
                     return 0
+                if on_user_input is not None:
+                    on_user_input(user_input)
                 child_input = processor.feed(user_input) if processor else user_input
                 try:
                     _write_all(master_fd, child_input)

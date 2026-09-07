@@ -1,11 +1,11 @@
-# CLI Autocorrect
+# Sidequest
 
-[![CI](https://github.com/harshu11-ai/CLI-Autocorrect/actions/workflows/ci.yml/badge.svg)](https://github.com/harshu11-ai/CLI-Autocorrect/actions/workflows/ci.yml)
+[![CI](https://github.com/harshu11-ai/sidequest/actions/workflows/ci.yml/badge.svg)](https://github.com/harshu11-ai/sidequest/actions/workflows/ci.yml)
 
-CLI Autocorrect fixes high-confidence typos while you type prompts in
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) and the
-[Codex CLI](https://github.com/openai/codex). It runs locally and wraps the
-existing CLI—you keep using the normal Claude or Codex interface.
+Sidequest is a local companion for [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+and the [Codex CLI](https://github.com/openai/codex). It fixes high-confidence
+typos while you type and can open a resumable chess game while your agent works.
+It wraps the existing CLI, so you keep using the normal Claude or Codex interface.
 
 ```text
 can you fix teh fucntion
@@ -25,14 +25,9 @@ yourself.
 - protection for paths, URLs, flags, identifiers, and mixed alphanumeric terms
 - pasted text passed through unchanged
 - immediate Backspace to undo the last correction
-- optional personal corrections and abbreviation expansions in a small JSON config file
+- optional personal corrections in a small JSON config file
+- optional, resumable chess breaks while an agent turn is running
 - transparent `--no-corrections` mode for terminal troubleshooting
-
-## Requirements
-
-- macOS or Linux
-- Python 3.10 or newer
-- Claude Code and/or Codex CLI already installed and available on `PATH`
 
 ## Install
 
@@ -40,14 +35,14 @@ For a clean, isolated command-line installation, use
 [pipx](https://pipx.pypa.io/):
 
 ```bash
-pipx install git+https://github.com/harshu11-ai/CLI-Autocorrect.git
+pipx install git+https://github.com/harshu11-ai/sidequest.git
 ```
 
 Or install it in a virtual environment with pip:
 
 ```bash
-git clone https://github.com/harshu11-ai/CLI-Autocorrect.git
-cd CLI-Autocorrect
+git clone https://github.com/harshu11-ai/sidequest.git
+cd sidequest
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install .
@@ -56,7 +51,7 @@ python -m pip install .
 Verify the installation:
 
 ```bash
-cauto --doctor
+sidequest --doctor
 ```
 
 The doctor reports the Python and platform versions, local dictionary status,
@@ -67,21 +62,55 @@ config path, terminal status, and whether `claude` and `codex` are on `PATH`.
 Launch either supported application through the wrapper:
 
 ```bash
-cauto claude
-cauto codex
+sidequest claude
+sidequest codex
 ```
 
 Arguments after the application name are passed through unchanged:
 
 ```bash
-cauto codex --model MODEL_NAME
+sidequest codex --model MODEL_NAME
 ```
 
-To test the PTY wrapper without corrections or abbreviation expansions:
+To test the PTY wrapper without changing any input:
 
 ```bash
-cauto --no-corrections codex
+sidequest --no-corrections codex
 ```
+
+To play chess while Codex or Claude works:
+
+```bash
+sidequest --chess codex
+sidequest --chess claude
+```
+
+Submitting a prompt opens a separate chess window. The game is saved locally,
+closes when the agent finishes or requests approval, and resumes after your next
+prompt. You play White against a built-in practice opponent by default. Use the
+in-game difficulty menu to choose Easy, Medium, or Hard; the choice is saved with
+your game. The built-in opponent ranges from basic legal moves to a short
+look-ahead. With Stockfish, the same setting controls its skill level and thinking
+time.
+
+For a stronger opponent, install [Stockfish](https://stockfishchess.org/) and
+make sure `stockfish` is on `PATH`. On macOS with Homebrew:
+
+```bash
+brew install stockfish
+sidequest --chess codex
+```
+
+You can also provide the executable explicitly:
+
+```bash
+sidequest --chess --stockfish /path/to/stockfish claude
+```
+
+The companion binds only to the loopback interface and protects its game API
+with a random per-session token. Chrome, Brave, Edge, or Chromium is used for a
+separate app-style window when available; otherwise it opens in the default
+browser.
 
 Wrapper options such as `--config` and `--no-corrections` must come before the
 application name. Everything after `claude` or `codex` belongs to that app.
@@ -89,53 +118,42 @@ application name. Everything after `claude` or `codex` belongs to that app.
 Update a pipx-managed installation from GitHub with:
 
 ```bash
-cauto update
+sidequest update
 ```
 
-## Personal corrections and abbreviations
+The previous `cauto` command remains available as a backward-compatible alias.
 
-Create `~/.config/cli-autocorrect/config.json` to add spelling corrections and
-abbreviations specific to your typing:
+## Personal corrections
+
+Create `~/.config/sidequest/config.json` to add corrections specific to
+your typing:
 
 ```json
 {
   "corrections": {
     "awsome": "awesome",
     "reccomend": "recommend"
-  },
-  "abbreviations": {
-    "pr": "pull request",
-    "runt": "run the test suite",
-    "expfn": "explain this function step by step"
   }
 }
 ```
 
-Typing `pr ` now inserts `pull request `. Abbreviations expand after Space or
-Enter, preserve trailing punctuation, and never recursively expand generated
-text. Immediate Backspace removes the expansion and restores its trigger.
-
-Correction keys and values, and abbreviation keys, must be lowercase words
-containing only ASCII letters. Abbreviation values may contain 1–500 printable
-ASCII characters, including spaces and punctuation, but cannot have surrounding
-spaces. A key cannot appear in both sections. Invalid configuration is reported
-clearly before the wrapped CLI starts.
-
-The wrapper inserts configured expansion text as keystrokes; it does not invoke
-a shell or interpret the expansion itself. Pasted abbreviations are not expanded.
+Keys and values must be different lowercase words containing only ASCII
+letters. Invalid configuration is reported clearly and prevents corrections
+from starting.
 
 Use another file for one session with:
 
 ```bash
-cauto --config /path/to/config.json claude
+sidequest --config /path/to/config.json claude
 ```
 
 On systems that set `XDG_CONFIG_HOME`, the default file is stored beneath that
-directory instead of `~/.config`.
+directory instead of `~/.config`. Existing `~/.config/cli-autocorrect/config.json`
+files are still loaded automatically when the new path does not exist.
 
 ## Safety model
 
-CLI Autocorrect prefers missing a typo over changing code or technical terms.
+Sidequest prefers missing a typo over changing code or technical terms.
 It does not correct:
 
 - pasted content
@@ -151,11 +169,10 @@ original word.
 
 ## Current boundaries
 
-This release corrects completed, lowercase English words and expands exact,
-user-defined lowercase abbreviation triggers. It intentionally does not rewrite
-grammar, split merged words such as `toteh`, repair misplaced spaces, or modify
-text that was pasted. Those changes need stronger context and more guardrails
-than ordinary spelling correction.
+This release corrects completed, lowercase English words. It intentionally does
+not rewrite grammar, split merged words such as `toteh`, repair misplaced spaces,
+or modify text that was pasted. Those changes need stronger context and more
+guardrails than ordinary spelling correction.
 
 The PTY wrapper has been smoke-tested with Codex CLI 0.151.0 and Claude Code
 2.1.252 on macOS. Compatibility is continuously tested on macOS and Linux, but
@@ -185,8 +202,10 @@ can be replaced without changing the terminal input processor.
 
 ## Privacy
 
-Prompts are processed in memory on the local machine. CLI Autocorrect does not
+Prompts are processed in memory on the local machine. Sidequest does not
 store prompts, terminal output, environment variables, or source code.
+Chess mode stores only the current board position beneath
+`~/.local/state/sidequest/` (or `XDG_STATE_HOME`) so games can resume.
 
 ## License
 

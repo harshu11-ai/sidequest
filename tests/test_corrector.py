@@ -1,6 +1,6 @@
 import unittest
 
-from cli_autocorrect.corrector import ConservativeCorrector
+from sidequest.corrector import ConservativeCorrector
 
 
 class ConservativeCorrectorTests(unittest.TestCase):

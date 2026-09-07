@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from cli_autocorrect.corrector import Correction, CorrectionEngine, get_default_corrector
+from sidequest.corrector import Correction, CorrectionEngine, get_default_corrector
 
 ESCAPE = 0x1B
 BACKSPACE = 0x7F
