@@ -23,13 +23,19 @@
           <button id="new-game" class="secondary" type="button">New game</button>
           <aside aria-label="Game controls">
             <div class="turn-indicator"><span id="turn-dot"></span><span id="status">Loading…</span></div>
+            <p id="last-turn-notice" class="last-turn-notice" aria-live="polite" hidden>
+              Your agent finished — make your last move to close this window.
+            </p>
             <p class="side-note" id="side-note">You play White</p>
             <div id="multiplayer-panel" class="multiplayer-panel" hidden>
               <dl>
                 <dt>Room code</dt>
                 <dd id="room-code">—</dd>
                 <dt>Opponent</dt>
-                <dd id="opponent-status">—</dd>
+                <dd class="opponent-row">
+                  <span id="opponent-dot" class="status-dot"></span>
+                  <span id="opponent-status">—</span>
+                </dd>
               </dl>
               <button id="toggle-practice" class="secondary" type="button">Play vs bot while you wait</button>
             </div>

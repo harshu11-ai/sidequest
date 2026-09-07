@@ -107,6 +107,23 @@ aside {
 #room-code { font: 700 1.05rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.06em; }
 #toggle-practice { width: 100%; margin-top: 4px; }
 
+.last-turn-notice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(233, 162, 110, 0.12);
+  border: 1px solid rgba(233, 162, 110, 0.4);
+  color: #e9a26e;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.opponent-row { display: flex; align-items: center; gap: 8px; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #55607e; }
+.status-dot--online { background: #6bcf7f; box-shadow: 0 0 8px #6bcf7f; }
+.status-dot--offline { background: #55607e; }
+
 .turn-indicator { display: flex; align-items: center; gap: 10px; font-weight: 700; }
 #turn-dot { width: 9px; height: 9px; border-radius: 50%; background: #7ea2e0; box-shadow: 0 0 14px #7ea2e0; }
 .side-note { margin: 8px 0 22px 19px; color: #8493b3; }

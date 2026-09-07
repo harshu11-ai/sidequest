@@ -7,11 +7,13 @@ const engineLabel = document.querySelector("#engine");
 const difficulty = document.querySelector("#difficulty");
 const message = document.querySelector("#message");
 const finished = document.querySelector("#finished");
+const lastTurnNotice = document.querySelector("#last-turn-notice");
 const sideNote = document.querySelector("#side-note");
 const newGameButton = document.querySelector("#new-game");
 const practicePanel = document.querySelector("#practice-panel");
 const multiplayerPanel = document.querySelector("#multiplayer-panel");
 const roomCodeLabel = document.querySelector("#room-code");
+const opponentDot = document.querySelector("#opponent-dot");
 const opponentStatusLabel = document.querySelector("#opponent-status");
 const togglePracticeButton = document.querySelector("#toggle-practice");
 const lastMoveMarker = {class: "marker-square-last", slice: "markerSquare"};
@@ -21,6 +23,7 @@ let state = null;
 let pendingMove = null;
 let wasActive = false;
 let isAnimating = false;
+let awaitingLastTurn = false;
 
 function positionPart(fen) {
   return fen.split(" ")[0];
@@ -67,13 +70,24 @@ function inputHandler(event) {
   }
 }
 
+let enabledInputColor = null;
+
 function enableInputIfReady() {
   if (!chessboard) return;
-  const shouldEnable = state?.active && state.turn === yourColor() && !isAnimating;
-  if (shouldEnable && !chessboard.isMoveInputEnabled()) {
-    chessboard.enableMoveInput(inputHandler, CMChessboard.COLOR[yourColor()]);
-  } else if (!shouldEnable && chessboard.isMoveInputEnabled()) {
+  const desiredColor = yourColor();
+  const shouldEnable =
+    (state?.active || awaitingLastTurn) && state.turn === desiredColor && !isAnimating;
+  if (shouldEnable) {
+    // Re-register whenever the color changes too, not just when input was off --
+    // switching between multiplayer (as Black, say) and practice (always White)
+    // otherwise leaves the board listening for the wrong color's pieces.
+    if (!chessboard.isMoveInputEnabled() || enabledInputColor !== desiredColor) {
+      chessboard.enableMoveInput(inputHandler, CMChessboard.COLOR[desiredColor]);
+      enabledInputColor = desiredColor;
+    }
+  } else if (chessboard.isMoveInputEnabled()) {
     chessboard.disableMoveInput();
+    enabledInputColor = null;
   }
 }
 
@@ -89,7 +103,6 @@ function renderMetadata(nextState) {
   state = nextState;
   statusLabel.textContent = state.status;
   showLastMove();
-  enableInputIfReady();
 
   const multiplayer = state.multiplayer;
   const inMultiplayerMode = Boolean(multiplayer) && state.mode === "multiplayer";
@@ -104,6 +117,8 @@ function renderMetadata(nextState) {
       : multiplayer.room_status === "waiting_for_opponent"
         ? "Waiting to join"
         : "Disconnected";
+    opponentDot.classList.toggle("status-dot--online", multiplayer.opponent_connected);
+    opponentDot.classList.toggle("status-dot--offline", !multiplayer.opponent_connected);
     togglePracticeButton.textContent =
       state.mode === "multiplayer" ? "Play vs bot while you wait" : "Back to multiplayer game";
     sideNote.textContent = inMultiplayerMode
@@ -124,11 +139,29 @@ function renderMetadata(nextState) {
 
   if (state.active) {
     wasActive = true;
+    awaitingLastTurn = false;
+    lastTurnNotice.hidden = true;
     finished.hidden = true;
   } else if (wasActive) {
-    finished.hidden = false;
-    window.setTimeout(() => window.close(), 350);
+    const gameOver = state.status === "Checkmate" || state.status === "Stalemate";
+    if (!awaitingLastTurn && !gameOver && state.turn === yourColor()) {
+      // The agent finished, but it's genuinely this player's move -- give them
+      // one more turn instead of yanking the window shut mid-thought.
+      awaitingLastTurn = true;
+      lastTurnNotice.hidden = false;
+    } else if (!awaitingLastTurn || gameOver || state.turn !== yourColor()) {
+      closeAfterFinish();
+    }
   }
+  enableInputIfReady();
+}
+
+function closeAfterFinish() {
+  wasActive = false;
+  awaitingLastTurn = false;
+  lastTurnNotice.hidden = true;
+  finished.hidden = false;
+  window.setTimeout(() => window.close(), 350);
 }
 
 function createBoard(initialState) {
@@ -160,6 +193,7 @@ function createBoard(initialState) {
 async function submitMove(move) {
   if (!move || isAnimating) return;
   const previousState = state;
+  const wasAwaitingLastTurn = awaitingLastTurn;
   isAnimating = true;
   statusLabel.textContent = "Computer thinking";
   try {
@@ -175,6 +209,14 @@ async function submitMove(move) {
       await chessboard.setPosition(nextState.fen, true);
     }
     isAnimating = false;
+    if (wasAwaitingLastTurn) {
+      // They just took the one extra move we promised them -- close now,
+      // regardless of whose turn it is next (practice's bot replies inline,
+      // which would otherwise hand the turn straight back to them).
+      renderMetadata(nextState);
+      closeAfterFinish();
+      return;
+    }
     renderMetadata(nextState);
   } catch (error) {
     message.textContent = error.message;
