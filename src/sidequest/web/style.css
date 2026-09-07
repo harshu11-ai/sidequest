@@ -50,17 +50,16 @@ h2 { font-size: 2.2rem; margin-bottom: 10px; }
 .game {
   min-width: 0;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(210px, 250px);
+  display: flex;
+  align-items: flex-start;
   gap: clamp(16px, 2.5vw, 28px);
-  align-items: start;
 }
 
 .board-shell {
   position: relative;
   width: min(100%, calc(100dvh - 128px));
   aspect-ratio: 1;
-  justify-self: start;
+  flex-shrink: 0;
   overflow: hidden;
   border: 1px solid #263351;
   background: #eeeed2;
@@ -86,7 +85,8 @@ h2 { font-size: 2.2rem; margin-bottom: 10px; }
 }
 
 aside {
-  width: 100%;
+  width: 250px;
+  flex-shrink: 0;
   padding: 22px;
   border: 1px solid #22304a;
   border-radius: 12px;
@@ -137,12 +137,12 @@ select:disabled { opacity: 0.55; cursor: not-allowed; }
   main { padding: 14px; }
   h1 { font-size: 1.35rem; }
   .game {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
+    flex-direction: column;
     gap: 12px;
   }
   aside {
     order: -1;
+    width: 100%;
     padding: 12px;
     display: grid;
     grid-template-columns: 1fr 1fr;
