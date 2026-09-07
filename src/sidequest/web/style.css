@@ -57,7 +57,7 @@ h2 { font-size: 2.2rem; margin-bottom: 10px; }
 
 .board-shell {
   position: relative;
-  width: min(520px, 100%, calc(100dvh - 128px));
+  width: min(560px, 100%, calc(100dvh - 128px));
   aspect-ratio: 1;
   flex-shrink: 0;
   overflow: hidden;
