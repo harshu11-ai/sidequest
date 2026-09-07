@@ -99,9 +99,9 @@ class RemoteChessGame:
         self._stop = threading.Event()
         self._poll_thread: threading.Thread | None = None
 
-        self._seat = self._resolve_seat(code)
-        self._save_seat(self._seat)
         try:
+            self._seat = self._resolve_seat(code)
+            self._save_seat(self._seat)
             initial = self.relay.get_state(self._seat.code, self._seat.token)
         except RelayError as error:
             raise MultiplayerError(str(error)) from error
@@ -154,15 +154,20 @@ class RemoteChessGame:
             self._poll_thread = None
 
     def _resolve_seat(self, code: str | None) -> RoomSeat:
+        # Hosting (no code) always mints a fresh room -- no silent resume.
+        # To get back into a game, host or guest, use --join with the code
+        # you were given/shared; that's the one path that resumes a seat.
+        if not code:
+            return self.relay.create_room()
+
+        normalized_code = code.strip().upper()
         saved = self._load_seat()
-        if saved is not None and (code is None or saved.code == code.strip().upper()):
+        if saved is not None and saved.code == normalized_code:
             with suppress(RelayError):
                 body = self.relay.get_state(saved.code, saved.token)
                 if body.get("room_status") != "finished":
                     return saved
-        if code:
-            return self.relay.join_room(code.strip().upper())
-        return self.relay.create_room()
+        return self.relay.join_room(normalized_code)
 
     def _load_seat(self) -> RoomSeat | None:
         try:

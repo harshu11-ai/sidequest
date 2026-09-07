@@ -58,51 +58,70 @@ class RemoteChessGameTests(unittest.TestCase):
         relay.join_room.assert_called_once_with("XYZ999")
         self.assertEqual(game.room_code, "XYZ999")
 
-    def test_seat_is_persisted_and_reused_on_reconnect(self) -> None:
+    def test_hosting_again_always_creates_a_fresh_room(self) -> None:
+        """No silent resume for --multiplayer: every host call is a new room,
+        even though a previous session's seat is still saved locally."""
         relay = Mock()
         relay.create_room.return_value = RoomSeat(code="ABC123", token="tok", you="white")
         relay.get_state.return_value = state_body()
         RemoteChessGame(relay, self.state_path)
 
         relay_again = Mock()
-        relay_again.get_state.return_value = state_body()
-        RemoteChessGame(relay_again, self.state_path)
-
-        relay_again.create_room.assert_not_called()
-        relay_again.get_state.assert_called_with("ABC123", "tok")
-
-    def test_finished_saved_room_is_replaced_by_a_fresh_one(self) -> None:
-        relay = Mock()
-        relay.create_room.return_value = RoomSeat(code="ABC123", token="tok", you="white")
-        relay.get_state.return_value = state_body()
-        RemoteChessGame(relay, self.state_path)
-
-        relay_again = Mock()
-        relay_again.get_state.return_value = state_body(room_status="finished")
         relay_again.create_room.return_value = RoomSeat(code="NEW111", token="tok2", you="white")
+        relay_again.get_state.return_value = state_body(code="NEW111")
 
         game = RemoteChessGame(relay_again, self.state_path)
 
         relay_again.create_room.assert_called_once_with()
+        relay_again.join_room.assert_not_called()
         self.assertEqual(game.room_code, "NEW111")
 
-    def test_gone_saved_room_falls_back_to_creating_a_fresh_one(self) -> None:
+    def test_joining_with_a_previously_used_code_resumes_your_seat(self) -> None:
         relay = Mock()
-        relay.create_room.return_value = RoomSeat(code="ABC123", token="tok", you="white")
-        relay.get_state.return_value = state_body()
-        RemoteChessGame(relay, self.state_path)
+        relay.join_room.return_value = RoomSeat(code="ABC123", token="tok", you="black")
+        relay.get_state.return_value = state_body(code="ABC123", you="black", your_turn=False)
+        RemoteChessGame(relay, self.state_path, code="abc123")
+
+        relay_again = Mock()
+        relay_again.get_state.return_value = state_body(code="ABC123", you="black", your_turn=False)
+        game = RemoteChessGame(relay_again, self.state_path, code="abc123")
+
+        relay_again.join_room.assert_not_called()
+        relay_again.get_state.assert_called_with("ABC123", "tok")
+        self.assertEqual(game.snapshot().you, "black")
+
+    def test_rejoining_a_finished_room_with_your_old_code_tries_a_fresh_join(self) -> None:
+        relay = Mock()
+        relay.join_room.return_value = RoomSeat(code="ABC123", token="tok", you="black")
+        relay.get_state.return_value = state_body(code="ABC123")
+        RemoteChessGame(relay, self.state_path, code="ABC123")
+
+        relay_again = Mock()
+        relay_again.get_state.return_value = state_body(code="ABC123", room_status="finished")
+        relay_again.join_room.side_effect = RelayError("room already has two players")
+
+        with self.assertRaises(MultiplayerError):
+            RemoteChessGame(relay_again, self.state_path, code="ABC123")
+
+        relay_again.join_room.assert_called_once_with("ABC123")
+
+    def test_rejoining_after_your_saved_seat_is_gone_tries_a_fresh_join(self) -> None:
+        relay = Mock()
+        relay.join_room.return_value = RoomSeat(code="ABC123", token="tok", you="black")
+        relay.get_state.return_value = state_body(code="ABC123")
+        RemoteChessGame(relay, self.state_path, code="ABC123")
 
         relay_again = Mock()
         relay_again.get_state.side_effect = [
             RelayError("room not found"),
-            state_body(code="NEW111"),
+            state_body(code="ABC123"),
         ]
-        relay_again.create_room.return_value = RoomSeat(code="NEW111", token="tok2", you="white")
+        relay_again.join_room.return_value = RoomSeat(code="ABC123", token="tok2", you="black")
 
-        game = RemoteChessGame(relay_again, self.state_path)
+        game = RemoteChessGame(relay_again, self.state_path, code="ABC123")
 
-        relay_again.create_room.assert_called_once_with()
-        self.assertEqual(game.room_code, "NEW111")
+        relay_again.join_room.assert_called_once_with("ABC123")
+        self.assertEqual(game.room_code, "ABC123")
 
     def test_move_updates_cached_snapshot(self) -> None:
         relay = Mock()
