@@ -57,7 +57,7 @@ h2 { font-size: 2.2rem; margin-bottom: 10px; }
 
 .board-shell {
   position: relative;
-  width: min(100%, calc(100dvh - 128px));
+  width: min(520px, 100%, calc(100dvh - 128px));
   aspect-ratio: 1;
   flex-shrink: 0;
   overflow: hidden;
@@ -84,9 +84,18 @@ h2 { font-size: 2.2rem; margin-bottom: 10px; }
   opacity: 0.34;
 }
 
-aside {
+.side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   width: 250px;
   flex-shrink: 0;
+}
+
+#new-game { width: 100%; }
+
+aside {
+  width: 100%;
   padding: 22px;
   border: 1px solid #22304a;
   border-radius: 12px;
@@ -140,9 +149,11 @@ select:disabled { opacity: 0.55; cursor: not-allowed; }
     flex-direction: column;
     gap: 12px;
   }
-  aside {
+  .side-column {
     order: -1;
     width: 100%;
+  }
+  aside {
     padding: 12px;
     display: grid;
     grid-template-columns: 1fr 1fr;
