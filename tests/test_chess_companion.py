@@ -6,8 +6,9 @@ import urllib.request
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from sidequest.chess_companion import ChessCompanion, CompanionWindow
-from sidequest.chess_game import ComputerChessGame
+from sidequest.chess.companion import ChessCompanion, CompanionWindow
+from sidequest.chess.game import ComputerChessGame
+from sidequest.chess.multiplayer import MultiplayerSnapshot
 
 
 class ChessCompanionTests(unittest.TestCase):
@@ -97,9 +98,142 @@ class ChessCompanionTests(unittest.TestCase):
         self.assertEqual(payload["difficulty"], "hard")
 
 
+def _multiplayer_snapshot(**overrides) -> MultiplayerSnapshot:
+    fields = {
+        "fen": "startpos",
+        "legal_moves": ("e2e4",),
+        "status": "In progress",
+        "turn": "white",
+        "last_move": None,
+        "you": "white",
+        "your_turn": True,
+        "room_code": "ABC123",
+        "room_status": "in_progress",
+        "result": None,
+        "opponent_connected": True,
+    }
+    fields.update(overrides)
+    return MultiplayerSnapshot(**fields)
+
+
+def _post(url: str, payload: dict) -> dict:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=2) as response:
+        return json.load(response)
+
+
+class ChessCompanionMultiplayerTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        game = ComputerChessGame(
+            Path(self.temporary_directory.name) / "game.json",
+            stockfish_path="",
+        )
+        self.multiplayer = Mock()
+        self.multiplayer.snapshot.return_value = _multiplayer_snapshot()
+        self.companion = ChessCompanion(
+            game,
+            multiplayer=self.multiplayer,
+            browser_open=lambda url: None,
+            browser_close=lambda: None,
+        )
+
+    def tearDown(self) -> None:
+        self.companion.close()
+        self.temporary_directory.cleanup()
+
+    def _url(self, path: str) -> str:
+        return self.companion.play_url.replace("/?", f"{path}?")
+
+    def test_starts_and_stops_background_polling(self) -> None:
+        self.multiplayer.start_polling.assert_called_once_with()
+        self.companion.close()
+        self.multiplayer.stop_polling.assert_called_once_with()
+
+    def test_state_defaults_to_multiplayer_mode_with_room_metadata(self) -> None:
+        with urllib.request.urlopen(self._url("/api/state"), timeout=2) as response:
+            payload = json.load(response)
+        self.assertEqual(payload["mode"], "multiplayer")
+        self.assertEqual(payload["fen"], "startpos")
+        self.assertEqual(payload["multiplayer"]["room_code"], "ABC123")
+        self.assertTrue(payload["multiplayer"]["opponent_connected"])
+
+    def test_move_dispatches_to_multiplayer_game(self) -> None:
+        self.multiplayer.move.return_value = _multiplayer_snapshot(
+            turn="black", your_turn=False, last_move="e2e4"
+        )
+        payload = _post(self._url("/api/move"), {"move": "e2e4"})
+        self.multiplayer.move.assert_called_once_with("e2e4")
+        self.assertEqual(payload["last_move"], "e2e4")
+
+    def test_new_game_is_rejected_in_multiplayer_mode(self) -> None:
+        with self.assertRaises(urllib.error.HTTPError) as raised:
+            _post(self._url("/api/new"), {})
+        self.assertEqual(raised.exception.code, 400)
+        raised.exception.close()
+
+    def test_difficulty_is_rejected_in_multiplayer_mode(self) -> None:
+        with self.assertRaises(urllib.error.HTTPError) as raised:
+            _post(self._url("/api/difficulty"), {"difficulty": "hard"})
+        self.assertEqual(raised.exception.code, 400)
+        raised.exception.close()
+
+    def test_mode_can_switch_to_practice_and_back(self) -> None:
+        practice_payload = _post(self._url("/api/mode"), {"mode": "practice"})
+        self.assertEqual(practice_payload["mode"], "practice")
+        self.assertEqual(practice_payload["engine"], "Sidequest practice bot")
+        # Room metadata stays visible even while looking at the practice board.
+        self.assertEqual(practice_payload["multiplayer"]["room_code"], "ABC123")
+
+        multiplayer_payload = _post(self._url("/api/mode"), {"mode": "multiplayer"})
+        self.assertEqual(multiplayer_payload["mode"], "multiplayer")
+        self.assertEqual(multiplayer_payload["fen"], "startpos")
+
+    def test_mode_rejects_unknown_value(self) -> None:
+        with self.assertRaises(urllib.error.HTTPError) as raised:
+            _post(self._url("/api/mode"), {"mode": "spectator"})
+        self.assertEqual(raised.exception.code, 400)
+        raised.exception.close()
+
+
+class ChessCompanionModeDisabledTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        game = ComputerChessGame(
+            Path(self.temporary_directory.name) / "game.json",
+            stockfish_path="",
+        )
+        self.companion = ChessCompanion(
+            game, browser_open=lambda url: None, browser_close=lambda: None
+        )
+
+    def tearDown(self) -> None:
+        self.companion.close()
+        self.temporary_directory.cleanup()
+
+    def test_mode_endpoint_requires_multiplayer_to_be_enabled(self) -> None:
+        with self.assertRaises(urllib.error.HTTPError) as raised:
+            _post(self.companion.play_url.replace("/?", "/api/mode?"), {"mode": "practice"})
+        self.assertEqual(raised.exception.code, 400)
+        raised.exception.close()
+
+    def test_state_has_no_multiplayer_key_when_disabled(self) -> None:
+        with urllib.request.urlopen(
+            self.companion.play_url.replace("/?", "/api/state?"), timeout=2
+        ) as response:
+            payload = json.load(response)
+        self.assertNotIn("multiplayer", payload)
+        self.assertEqual(payload["mode"], "practice")
+
+
 class CompanionWindowTests(unittest.TestCase):
-    @patch("sidequest.chess_companion.subprocess.Popen")
-    @patch("sidequest.chess_companion._find_chromium", return_value="/browser")
+    @patch("sidequest.chess.companion.subprocess.Popen")
+    @patch("sidequest.chess.companion._find_chromium", return_value="/browser")
     def test_owned_browser_process_is_terminated(self, _find, popen) -> None:
         process = Mock()
         process.poll.return_value = None

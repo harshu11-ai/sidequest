@@ -18,7 +18,8 @@ from importlib.resources import files
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from sidequest.chess_game import ComputerChessGame
+from sidequest.chess.game import ComputerChessGame
+from sidequest.chess.multiplayer import RemoteChessGame
 
 _MAX_REQUEST_BYTES = 4096
 _ASSET_TYPES = {
@@ -109,10 +110,14 @@ class ChessCompanion:
         self,
         game: ComputerChessGame | None = None,
         *,
+        multiplayer: RemoteChessGame | None = None,
         browser_open: Any | None = None,
         browser_close: Any | None = None,
     ) -> None:
         self.game = game or ComputerChessGame()
+        self.multiplayer = multiplayer
+        self._mode = "multiplayer" if multiplayer is not None else "practice"
+        self._mode_lock = threading.Lock()
         self._window = CompanionWindow() if browser_open is None else None
         self._browser_open = browser_open or self._window.open
         default_close = self._window.hide if self._window else (lambda: None)
@@ -128,6 +133,8 @@ class ChessCompanion:
             daemon=True,
         )
         self._thread.start()
+        if self.multiplayer is not None:
+            self.multiplayer.start_polling()
 
     @property
     def base_url(self) -> str:
@@ -170,6 +177,8 @@ class ChessCompanion:
         self._server.shutdown()
         self._server.server_close()
         self._thread.join(timeout=2)
+        if self.multiplayer is not None:
+            self.multiplayer.stop_polling()
         if self._window is not None:
             self._window.close()
 
@@ -192,15 +201,14 @@ class ChessCompanion:
         parsed = urlparse(handler.path)
         if parsed.path in _ASSET_TYPES:
             asset_name, content_type = _ASSET_TYPES[parsed.path]
-            content = files("sidequest").joinpath("web", asset_name).read_bytes()
+            content = files("sidequest.chess").joinpath("web", asset_name).read_bytes()
             self._respond(handler, HTTPStatus.OK, content, content_type)
             return
         if parsed.path == "/api/state":
             if not self._authorized(parsed.query):
                 self._json(handler, HTTPStatus.FORBIDDEN, {"error": "forbidden"})
                 return
-            state = self.game.snapshot().as_dict()
-            state["active"] = self.is_active()
+            state = self._augment(self._active_game().snapshot().as_dict())
             self._json(handler, HTTPStatus.OK, state)
             return
         self._json(handler, HTTPStatus.NOT_FOUND, {"error": "not found"})
@@ -218,7 +226,7 @@ class ChessCompanion:
             self.hide()
             self._json(handler, HTTPStatus.OK, {})
             return
-        if parsed.path not in {"/api/move", "/api/new", "/api/difficulty"}:
+        if parsed.path not in {"/api/move", "/api/new", "/api/difficulty", "/api/mode"}:
             self._json(handler, HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         if handler.headers.get_content_type() != "application/json":
@@ -233,18 +241,55 @@ class ChessCompanion:
             return
         try:
             payload = json.loads(handler.rfile.read(length) or b"{}")
-            if parsed.path == "/api/new":
-                snapshot = self.game.new_game()
+            if parsed.path == "/api/mode":
+                self._set_mode(payload.get("mode", ""))
+                snapshot_dict = self._active_game().snapshot().as_dict()
+            elif parsed.path == "/api/new":
+                if self._current_mode() == "multiplayer":
+                    raise ValueError("start a new game from the practice board instead")
+                snapshot_dict = self.game.new_game().as_dict()
             elif parsed.path == "/api/difficulty":
-                snapshot = self.game.set_difficulty(payload.get("difficulty", ""))
+                if self._current_mode() == "multiplayer":
+                    raise ValueError("difficulty only applies to the practice board")
+                snapshot_dict = self.game.set_difficulty(payload.get("difficulty", "")).as_dict()
             else:
-                snapshot = self.game.move(payload.get("move", ""))
+                snapshot_dict = self._active_game().move(payload.get("move", "")).as_dict()
         except (json.JSONDecodeError, AttributeError, ValueError) as error:
             self._json(handler, HTTPStatus.BAD_REQUEST, {"error": str(error)})
             return
-        state = snapshot.as_dict()
+        self._json(handler, HTTPStatus.OK, self._augment(snapshot_dict))
+
+    def _active_game(self) -> ComputerChessGame | RemoteChessGame:
+        if self._current_mode() == "multiplayer" and self.multiplayer is not None:
+            return self.multiplayer
+        return self.game
+
+    def _current_mode(self) -> str:
+        with self._mode_lock:
+            return self._mode
+
+    def _set_mode(self, mode: str) -> None:
+        if self.multiplayer is None:
+            raise ValueError("multiplayer is not enabled for this session")
+        if mode not in {"practice", "multiplayer"}:
+            raise ValueError(f"unsupported mode: {mode}")
+        with self._mode_lock:
+            self._mode = mode
+
+    def _augment(self, state: dict[str, object]) -> dict[str, object]:
         state["active"] = self.is_active()
-        self._json(handler, HTTPStatus.OK, state)
+        state["mode"] = self._current_mode()
+        if self.multiplayer is not None:
+            room = self.multiplayer.snapshot()
+            state["multiplayer"] = {
+                "room_code": room.room_code,
+                "you": room.you,
+                "your_turn": room.your_turn,
+                "room_status": room.room_status,
+                "opponent_connected": room.opponent_connected,
+                "result": room.result,
+            }
+        return state
 
     def _authorized(self, query: str) -> bool:
         supplied = parse_qs(query).get("token", [""])[0]

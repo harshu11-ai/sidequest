@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest.mock import Mock
 
-from sidequest.lifecycle import (
+from sidequest.chess.lifecycle import (
     AgentLifecycle,
     _contains_codex_prompt,
     _contains_osc9,

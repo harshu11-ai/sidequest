@@ -102,6 +102,11 @@ aside {
   background: rgba(19, 28, 48, 0.9);
 }
 
+.multiplayer-panel { margin-bottom: 10px; padding-bottom: 12px; border-bottom: 1px solid #22304a; }
+.multiplayer-panel dl { margin-bottom: 0; padding-top: 0; border-top: 0; }
+#room-code { font: 700 1.05rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.06em; }
+#toggle-practice { width: 100%; margin-top: 4px; }
+
 .turn-indicator { display: flex; align-items: center; gap: 10px; font-weight: 700; }
 #turn-dot { width: 9px; height: 9px; border-radius: 50%; background: #7ea2e0; box-shadow: 0 0 14px #7ea2e0; }
 .side-note { margin: 8px 0 22px 19px; color: #8493b3; }

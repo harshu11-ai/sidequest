@@ -8,8 +8,8 @@ import shutil
 import sys
 
 from sidequest import __version__
-from sidequest.config import ConfigurationError, UserConfiguration, load_configuration
-from sidequest.corrector import FrequencyCorrector
+from sidequest.autocorrect.config import ConfigurationError, UserConfiguration, load_configuration
+from sidequest.autocorrect.corrector import FrequencyCorrector
 from sidequest.pty_proxy import TerminalRequiredError, run_in_pty
 from sidequest.updater import UpdateError, update_with_pipx
 
@@ -41,6 +41,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--stockfish",
         metavar="PATH",
         help="use a specific Stockfish executable for --chess",
+    )
+    parser.add_argument(
+        "--multiplayer",
+        action="store_true",
+        help="host a new multiplayer chess game over the relay and print a code to share. "
+        "Requires --chess.",
+    )
+    parser.add_argument(
+        "--join",
+        metavar="CODE",
+        help="join a multiplayer chess game using a code you were given. Requires --chess.",
+    )
+    parser.add_argument(
+        "--relay-url",
+        metavar="URL",
+        help="multiplayer relay to use with --multiplayer/--join (defaults to the built-in relay)",
     )
     parser.add_argument(
         "--doctor",
@@ -77,6 +93,9 @@ def main(argv: list[str] | None = None) -> int:
             or arguments.config is not None
             or arguments.chess
             or arguments.stockfish is not None
+            or arguments.multiplayer
+            or arguments.join is not None
+            or arguments.relay_url is not None
         ):
             parser.error("'update' cannot be combined with wrapper options")
         return _run_update()
@@ -93,6 +112,13 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--stockfish requires --chess")
     if arguments.stockfish is not None and shutil.which(arguments.stockfish) is None:
         parser.error(f"could not find Stockfish executable: {arguments.stockfish}")
+    if arguments.multiplayer and arguments.join is not None:
+        parser.error("--multiplayer and --join cannot be combined")
+    multiplayer_requested = arguments.multiplayer or arguments.join is not None
+    if multiplayer_requested and not arguments.chess:
+        parser.error("--multiplayer/--join requires --chess")
+    if arguments.relay_url is not None and not multiplayer_requested:
+        parser.error("--relay-url requires --multiplayer or --join")
 
     corrector = None
     if not arguments.no_corrections:
@@ -109,12 +135,19 @@ def main(argv: list[str] | None = None) -> int:
     lifecycle = None
     try:
         if arguments.chess:
-            from sidequest.chess_companion import ChessCompanion
-            from sidequest.chess_game import ComputerChessGame
-            from sidequest.lifecycle import AgentLifecycle, prepare_agent_command
+            from sidequest.chess.companion import ChessCompanion
+            from sidequest.chess.game import ComputerChessGame
+            from sidequest.chess.lifecycle import AgentLifecycle, prepare_agent_command
+
+            multiplayer_game = None
+            if multiplayer_requested:
+                multiplayer_game = _start_multiplayer(arguments.join, arguments.relay_url)
+                if multiplayer_game is None:
+                    return 1
 
             companion = ChessCompanion(
-                ComputerChessGame(stockfish_path=arguments.stockfish)
+                ComputerChessGame(stockfish_path=arguments.stockfish),
+                multiplayer=multiplayer_game,
             )
             lifecycle = AgentLifecycle(
                 companion,
@@ -140,6 +173,23 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if companion is not None:
             companion.close()
+
+
+def _start_multiplayer(code: str | None, relay_url: str | None):
+    from sidequest.chess.multiplayer import MultiplayerError, RemoteChessGame
+    from sidequest.chess.relay_client import DEFAULT_RELAY_URL, RelayClient, RelayError
+
+    relay = RelayClient(relay_url or DEFAULT_RELAY_URL)
+    try:
+        game = RemoteChessGame(relay, code=code)
+    except (RelayError, MultiplayerError) as error:
+        print(f"sidequest: multiplayer setup failed: {error}", file=sys.stderr)
+        return None
+    if code is None:
+        print(f"Share this code with your opponent: {game.room_code}")
+    else:
+        print(f"Joined room {game.room_code}.")
+    return game
 
 
 def _load_configuration(path: str | None) -> UserConfiguration | None:

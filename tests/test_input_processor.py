@@ -1,7 +1,7 @@
 import unittest
 
-from sidequest.corrector import ConservativeCorrector
-from sidequest.input_processor import (
+from sidequest.autocorrect.corrector import ConservativeCorrector
+from sidequest.autocorrect.input_processor import (
     BRACKETED_PASTE_END,
     BRACKETED_PASTE_START,
     InputProcessor,
