@@ -7,6 +7,13 @@ const engineLabel = document.querySelector("#engine");
 const difficulty = document.querySelector("#difficulty");
 const message = document.querySelector("#message");
 const finished = document.querySelector("#finished");
+const sideNote = document.querySelector("#side-note");
+const newGameButton = document.querySelector("#new-game");
+const practicePanel = document.querySelector("#practice-panel");
+const multiplayerPanel = document.querySelector("#multiplayer-panel");
+const roomCodeLabel = document.querySelector("#room-code");
+const opponentStatusLabel = document.querySelector("#opponent-status");
+const togglePracticeButton = document.querySelector("#toggle-practice");
 const lastMoveMarker = {class: "marker-square-last", slice: "markerSquare"};
 const animationDuration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 260;
 let chessboard = null;
@@ -19,8 +26,13 @@ function positionPart(fen) {
   return fen.split(" ")[0];
 }
 
+function yourColor() {
+  if (state?.mode === "multiplayer" && state.multiplayer) return state.multiplayer.you;
+  return "white";
+}
+
 function legalMovesFrom(square) {
-  if (!state || state.turn !== "white") return [];
+  if (!state || state.turn !== yourColor()) return [];
   return state.legal_moves.filter((move) => move.startsWith(square));
 }
 
@@ -57,9 +69,9 @@ function inputHandler(event) {
 
 function enableInputIfReady() {
   if (!chessboard) return;
-  const shouldEnable = state?.active && state.turn === "white" && !isAnimating;
+  const shouldEnable = state?.active && state.turn === yourColor() && !isAnimating;
   if (shouldEnable && !chessboard.isMoveInputEnabled()) {
-    chessboard.enableMoveInput(inputHandler, CMChessboard.COLOR.white);
+    chessboard.enableMoveInput(inputHandler, CMChessboard.COLOR[yourColor()]);
   } else if (!shouldEnable && chessboard.isMoveInputEnabled()) {
     chessboard.disableMoveInput();
   }
@@ -76,14 +88,39 @@ function showLastMove() {
 function renderMetadata(nextState) {
   state = nextState;
   statusLabel.textContent = state.status;
-  engineLabel.textContent = state.engine;
-  difficulty.value = state.difficulty || "medium";
-  difficulty.disabled = state.last_move != null;
-  difficulty.title = difficulty.disabled
-    ? "Difficulty is locked once the game has started. Start a new game to change it."
-    : "";
   showLastMove();
   enableInputIfReady();
+
+  const multiplayer = state.multiplayer;
+  const inMultiplayerMode = Boolean(multiplayer) && state.mode === "multiplayer";
+  multiplayerPanel.hidden = !multiplayer;
+  practicePanel.hidden = inMultiplayerMode;
+  newGameButton.hidden = inMultiplayerMode;
+
+  if (multiplayer) {
+    roomCodeLabel.textContent = multiplayer.room_code;
+    opponentStatusLabel.textContent = multiplayer.opponent_connected
+      ? "Connected"
+      : multiplayer.room_status === "waiting_for_opponent"
+        ? "Waiting to join"
+        : "Disconnected";
+    togglePracticeButton.textContent =
+      state.mode === "multiplayer" ? "Play vs bot while you wait" : "Back to multiplayer game";
+    sideNote.textContent = inMultiplayerMode
+      ? `You play ${multiplayer.you === "white" ? "White" : "Black"}`
+      : "You play White (practice)";
+  } else {
+    sideNote.textContent = "You play White";
+  }
+
+  if (!inMultiplayerMode) {
+    engineLabel.textContent = state.engine;
+    difficulty.value = state.difficulty || "medium";
+    difficulty.disabled = state.last_move != null;
+    difficulty.title = difficulty.disabled
+      ? "Difficulty is locked once the game has started. Start a new game to change it."
+      : "";
+  }
 
   if (state.active) {
     wasActive = true;
@@ -95,9 +132,10 @@ function renderMetadata(nextState) {
 }
 
 function createBoard(initialState) {
+  state = initialState;
   chessboard = new CMChessboard.Chessboard(boardElement, {
     position: initialState.fen,
-    orientation: CMChessboard.COLOR.white,
+    orientation: CMChessboard.COLOR[yourColor()],
     assetsUrl: "/",
     style: {
       cssClass: "sidequest-board",
@@ -131,6 +169,9 @@ async function submitMove(move) {
     }
     if (nextState.computer_move) {
       statusLabel.textContent = "Opponent moving";
+      await chessboard.setPosition(nextState.fen, true);
+    } else if (!nextState.player_fen) {
+      // Multiplayer moves have neither field -- just show the result directly.
       await chessboard.setPosition(nextState.fen, true);
     }
     isAnimating = false;
@@ -177,6 +218,25 @@ async function changeDifficulty() {
   } catch (error) {
     message.textContent = error.message;
     difficulty.value = state.difficulty;
+  }
+}
+
+async function toggleMode() {
+  if (isAnimating || !state) return;
+  const nextMode = state.mode === "multiplayer" ? "practice" : "multiplayer";
+  isAnimating = true;
+  try {
+    const nextState = await request("/api/mode", {mode: nextMode});
+    state = nextState;
+    if (chessboard) {
+      chessboard.setOrientation(CMChessboard.COLOR[yourColor()]);
+      await chessboard.setPosition(nextState.fen, false);
+    }
+    isAnimating = false;
+    renderMetadata(nextState);
+  } catch (error) {
+    isAnimating = false;
+    message.textContent = error.message;
   }
 }
 

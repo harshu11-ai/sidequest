@@ -71,7 +71,7 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         game_type.assert_called_once_with(stockfish_path=None)
-        companion_type.assert_called_once_with(game_type.return_value)
+        companion_type.assert_called_once_with(game_type.return_value, multiplayer=None)
         lifecycle_type.assert_called_once_with(companion, watch_codex_input=True)
         prepare_command.assert_called_once_with(["codex"], "codex", companion)
         run_in_pty.assert_called_once_with(
