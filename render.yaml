@@ -1,0 +1,12 @@
+# Room state lives in this process's memory (see relay/app/store.py), so this
+# service must stay a single instance -- do not add a `scaling` block here.
+services:
+  - type: web
+    name: sidequest-chess-relay
+    runtime: python
+    rootDir: relay
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    autoDeploy: true
