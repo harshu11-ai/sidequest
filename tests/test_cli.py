@@ -83,6 +83,14 @@ class CliTests(unittest.TestCase):
         )
         companion.close.assert_called_once_with()
 
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
+    def test_rejects_multiplayer_flag_placed_after_application_name(self, _which) -> None:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            main(["--chess", "codex", "--multiplayer"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("must come before the application name", stderr.getvalue())
+
     @patch("sidequest.cli.run_in_pty")
     @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
     def test_rejects_missing_explicit_config(self, _which, run_in_pty) -> None:

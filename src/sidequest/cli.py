@@ -14,6 +14,11 @@ from sidequest.pty_proxy import TerminalRequiredError, run_in_pty
 from sidequest.updater import UpdateError, update_with_pipx
 
 SUPPORTED_APPS = {"claude", "codex"}
+# Flags unique enough to sidequest that seeing them after the application name
+# almost certainly means the user meant them for sidequest, not the app --
+# `command` uses argparse.REMAINDER, which swallows everything after the
+# application name literally, flags included, to forward it through unchanged.
+_MULTIPLAYER_FLAG_TOKENS = {"--multiplayer", "--join", "--relay-url"}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -119,6 +124,13 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--multiplayer/--join requires --chess")
     if arguments.relay_url is not None and not multiplayer_requested:
         parser.error("--relay-url requires --multiplayer or --join")
+    if any(token in _MULTIPLAYER_FLAG_TOKENS for token in command[1:]):
+        parser.error(
+            "--multiplayer/--join/--relay-url must come before the application name "
+            f"(e.g. 'sidequest --chess --multiplayer {application}', not "
+            f"'sidequest --chess {application} --multiplayer') -- anything after the "
+            "application name is passed through to it as-is"
+        )
 
     corrector = None
     if not arguments.no_corrections:
