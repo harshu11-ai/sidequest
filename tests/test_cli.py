@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch, sentinel
 
 from sidequest.autocorrect.config import UserConfiguration
-from sidequest.cli import _run_doctor, main
+from sidequest.cli import _ROOM_CODE_DISPLAY_SECONDS, _run_doctor, _start_multiplayer, main
 from sidequest.updater import UpdateError, UpdateResult
 
 
@@ -82,6 +82,29 @@ class CliTests(unittest.TestCase):
             on_child_output=lifecycle.child_output,
         )
         companion.close.assert_called_once_with()
+
+    @patch("sidequest.cli.time.sleep")
+    @patch("sidequest.chess.multiplayer.RemoteChessGame")
+    def test_hosting_pauses_to_show_the_room_code(self, game_type, sleep) -> None:
+        game_type.return_value.room_code = "ABC123"
+
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            result = _start_multiplayer(None, None)
+
+        self.assertIs(result, game_type.return_value)
+        self.assertIn("ABC123", stdout.getvalue())
+        sleep.assert_called_once_with(_ROOM_CODE_DISPLAY_SECONDS)
+
+    @patch("sidequest.cli.time.sleep")
+    @patch("sidequest.chess.multiplayer.RemoteChessGame")
+    def test_joining_does_not_pause(self, _game_type, sleep) -> None:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            _start_multiplayer("ABC123", None)
+
+        self.assertIn("Joined room", stdout.getvalue())
+        sleep.assert_not_called()
 
     @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
     def test_rejects_multiplayer_flag_placed_after_application_name(self, _which) -> None:

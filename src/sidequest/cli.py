@@ -6,6 +6,7 @@ import argparse
 import platform
 import shutil
 import sys
+import time
 
 from sidequest import __version__
 from sidequest.autocorrect.config import ConfigurationError, UserConfiguration, load_configuration
@@ -19,6 +20,10 @@ SUPPORTED_APPS = {"claude", "codex"}
 # `command` uses argparse.REMAINDER, which swallows everything after the
 # application name literally, flags included, to forward it through unchanged.
 _MULTIPLAYER_FLAG_TOKENS = {"--multiplayer", "--join", "--relay-url"}
+# How long to hold the terminal open showing a freshly hosted room code before
+# handing off to the agent, which otherwise redraws the screen almost
+# immediately and scrolls the code away before it can be read or copied.
+_ROOM_CODE_DISPLAY_SECONDS = 8
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -199,6 +204,8 @@ def _start_multiplayer(code: str | None, relay_url: str | None):
         return None
     if code is None:
         print(f"Share this code with your opponent: {game.room_code}")
+        print(f"(starting in {_ROOM_CODE_DISPLAY_SECONDS}s...)")
+        time.sleep(_ROOM_CODE_DISPLAY_SECONDS)
     else:
         print(f"Joined room {game.room_code}.")
     return game
