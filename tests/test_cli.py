@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, sentinel
 
+from sidequest.autocorrect.config import UserConfiguration
 from sidequest.cli import _run_doctor, main
-from sidequest.config import UserConfiguration
 from sidequest.updater import UpdateError, UpdateResult
 
 
@@ -49,10 +49,10 @@ class CliTests(unittest.TestCase):
             on_child_output=None,
         )
 
-    @patch("sidequest.lifecycle.prepare_agent_command", return_value=["codex", "prepared"])
-    @patch("sidequest.lifecycle.AgentLifecycle")
-    @patch("sidequest.chess_companion.ChessCompanion")
-    @patch("sidequest.chess_game.ComputerChessGame")
+    @patch("sidequest.chess.lifecycle.prepare_agent_command", return_value=["codex", "prepared"])
+    @patch("sidequest.chess.lifecycle.AgentLifecycle")
+    @patch("sidequest.chess.companion.ChessCompanion")
+    @patch("sidequest.chess.game.ComputerChessGame")
     @patch("sidequest.cli.run_in_pty", return_value=0)
     @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
     def test_chess_prepares_lifecycle_and_closes_companion(

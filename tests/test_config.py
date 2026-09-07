@@ -5,12 +5,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from sidequest.config import (
+from sidequest.autocorrect.config import (
     ConfigurationError,
     default_config_path,
     load_configuration,
 )
-from sidequest.corrector import ConservativeCorrector
+from sidequest.autocorrect.corrector import ConservativeCorrector
 
 
 class ConfigurationTests(unittest.TestCase):

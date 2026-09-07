@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from sidequest.chess_game import (
+from sidequest.chess.game import (
     ComputerChessGame,
     InvalidChessMove,
     _stockfish_move,
@@ -72,7 +72,7 @@ class ComputerChessGameTests(unittest.TestCase):
         snapshot = ComputerChessGame(self.state_path, stockfish_path="").snapshot()
         self.assertTrue(snapshot.fen.startswith("rnbqkbnr/pppppppp"))
 
-    @patch("sidequest.chess_game.subprocess.run")
+    @patch("sidequest.chess.game.subprocess.run")
     def test_reads_stockfish_best_move(self, run) -> None:
         run.return_value.stdout = "uciok\nreadyok\nbestmove e7e5 ponder g1f3\n"
         self.assertEqual(_stockfish_move("stockfish", "example fen", 100, "hard"), "e7e5")

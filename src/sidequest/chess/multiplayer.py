@@ -17,7 +17,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
-from sidequest.relay_client import RelayClient, RelayError, RoomSeat
+from sidequest.chess.relay_client import RelayClient, RelayError, RoomSeat
 
 _POLL_INTERVAL_SECONDS = 1.5
 

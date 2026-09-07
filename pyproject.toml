@@ -61,7 +61,7 @@ version = { attr = "sidequest.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-sidequest = ["web/*.css", "web/*.html", "web/*.js", "web/*.svg", "web/*.txt"]
+"sidequest.chess" = ["web/*.css", "web/*.html", "web/*.js", "web/*.svg", "web/*.txt"]
 
 [tool.ruff]
 line-length = 100

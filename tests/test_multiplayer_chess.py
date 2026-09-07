@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from sidequest.multiplayer_chess import MultiplayerError, RemoteChessGame
-from sidequest.relay_client import RelayError, RoomSeat
+from sidequest.chess.multiplayer import MultiplayerError, RemoteChessGame
+from sidequest.chess.relay_client import RelayError, RoomSeat
 
 
 def state_body(**overrides) -> dict:

@@ -15,8 +15,8 @@ import tty
 from collections.abc import Callable, Sequence
 from contextlib import suppress
 
-from sidequest.corrector import CorrectionEngine
-from sidequest.input_processor import InputProcessor
+from sidequest.autocorrect.corrector import CorrectionEngine
+from sidequest.autocorrect.input_processor import InputProcessor
 
 
 class TerminalRequiredError(RuntimeError):

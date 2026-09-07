@@ -6,7 +6,7 @@ import json
 import re
 from collections.abc import Sequence
 
-from sidequest.chess_companion import ChessCompanion
+from sidequest.chess.companion import ChessCompanion
 
 _CODEX_PROMPT_TEXT = b"Ask Codex to do anything"
 _ANSI_SEQUENCE = re.compile(

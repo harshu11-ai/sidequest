@@ -1,6 +1,6 @@
 import unittest
 
-from sidequest.corrector import FrequencyCorrector
+from sidequest.autocorrect.corrector import FrequencyCorrector
 
 
 class FrequencyCorrectorTests(unittest.TestCase):

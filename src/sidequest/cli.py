@@ -8,8 +8,8 @@ import shutil
 import sys
 
 from sidequest import __version__
-from sidequest.config import ConfigurationError, UserConfiguration, load_configuration
-from sidequest.corrector import FrequencyCorrector
+from sidequest.autocorrect.config import ConfigurationError, UserConfiguration, load_configuration
+from sidequest.autocorrect.corrector import FrequencyCorrector
 from sidequest.pty_proxy import TerminalRequiredError, run_in_pty
 from sidequest.updater import UpdateError, update_with_pipx
 
@@ -135,9 +135,9 @@ def main(argv: list[str] | None = None) -> int:
     lifecycle = None
     try:
         if arguments.chess:
-            from sidequest.chess_companion import ChessCompanion
-            from sidequest.chess_game import ComputerChessGame
-            from sidequest.lifecycle import AgentLifecycle, prepare_agent_command
+            from sidequest.chess.companion import ChessCompanion
+            from sidequest.chess.game import ComputerChessGame
+            from sidequest.chess.lifecycle import AgentLifecycle, prepare_agent_command
 
             multiplayer_game = None
             if multiplayer_requested:
@@ -176,8 +176,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _start_multiplayer(code: str | None, relay_url: str | None):
-    from sidequest.multiplayer_chess import MultiplayerError, RemoteChessGame
-    from sidequest.relay_client import DEFAULT_RELAY_URL, RelayClient, RelayError
+    from sidequest.chess.multiplayer import MultiplayerError, RemoteChessGame
+    from sidequest.chess.relay_client import DEFAULT_RELAY_URL, RelayClient, RelayError
 
     relay = RelayClient(relay_url or DEFAULT_RELAY_URL)
     try:

@@ -6,9 +6,9 @@ import urllib.request
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from sidequest.chess_companion import ChessCompanion, CompanionWindow
-from sidequest.chess_game import ComputerChessGame
-from sidequest.multiplayer_chess import MultiplayerSnapshot
+from sidequest.chess.companion import ChessCompanion, CompanionWindow
+from sidequest.chess.game import ComputerChessGame
+from sidequest.chess.multiplayer import MultiplayerSnapshot
 
 
 class ChessCompanionTests(unittest.TestCase):
@@ -232,8 +232,8 @@ class ChessCompanionModeDisabledTests(unittest.TestCase):
 
 
 class CompanionWindowTests(unittest.TestCase):
-    @patch("sidequest.chess_companion.subprocess.Popen")
-    @patch("sidequest.chess_companion._find_chromium", return_value="/browser")
+    @patch("sidequest.chess.companion.subprocess.Popen")
+    @patch("sidequest.chess.companion._find_chromium", return_value="/browser")
     def test_owned_browser_process_is_terminated(self, _find, popen) -> None:
         process = Mock()
         process.poll.return_value = None

@@ -18,8 +18,8 @@ from importlib.resources import files
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from sidequest.chess_game import ComputerChessGame
-from sidequest.multiplayer_chess import RemoteChessGame
+from sidequest.chess.game import ComputerChessGame
+from sidequest.chess.multiplayer import RemoteChessGame
 
 _MAX_REQUEST_BYTES = 4096
 _ASSET_TYPES = {
@@ -201,7 +201,7 @@ class ChessCompanion:
         parsed = urlparse(handler.path)
         if parsed.path in _ASSET_TYPES:
             asset_name, content_type = _ASSET_TYPES[parsed.path]
-            content = files("sidequest").joinpath("web", asset_name).read_bytes()
+            content = files("sidequest.chess").joinpath("web", asset_name).read_bytes()
             self._respond(handler, HTTPStatus.OK, content, content_type)
             return
         if parsed.path == "/api/state":
