@@ -3,17 +3,17 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cli-autocorrect"
+name = "sidequest"
 dynamic = ["version"]
-description = "Local autocorrect and text expansion for Claude Code and Codex CLI prompts"
+description = "A local prompt companion for Claude Code and Codex CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 authors = [
   { name = "Harshith Yallampalli" },
 ]
-keywords = ["autocorrect", "terminal", "claude-code", "codex", "cli"]
+keywords = ["autocorrect", "chess", "terminal", "claude-code", "codex", "cli"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
@@ -29,34 +29,39 @@ classifiers = [
   "Topic :: Terminals",
 ]
 dependencies = [
+  "chessnut>=0.4.1,<0.5",
   "symspellpy>=6.10,<7",
 ]
 
 [project.optional-dependencies]
 dev = [
   "build>=1.2",
+  "pytest>=8",
   "ruff>=0.8",
   "twine>=5",
 ]
 
 [project.scripts]
-cauto = "cli_autocorrect.cli:main"
-# Retained for one transition release so the 0.2.2 updater can verify the reinstall.
-cli-autocorrect = "cli_autocorrect.cli:main"
+sidequest = "sidequest.cli:main"
+# Backward-compatible alias for existing CLI Autocorrect users.
+cauto = "sidequest.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/harshu11-ai/CLI-Autocorrect"
-Repository = "https://github.com/harshu11-ai/CLI-Autocorrect"
-Issues = "https://github.com/harshu11-ai/CLI-Autocorrect/issues"
+Homepage = "https://github.com/harshu11-ai/sidequest"
+Repository = "https://github.com/harshu11-ai/sidequest"
+Issues = "https://github.com/harshu11-ai/sidequest/issues"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
 
 [tool.setuptools.dynamic]
-version = { attr = "cli_autocorrect.__version__" }
+version = { attr = "sidequest.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+sidequest = ["web/*.css", "web/*.html", "web/*.js", "web/*.svg", "web/*.txt"]
 
 [tool.ruff]
 line-length = 100

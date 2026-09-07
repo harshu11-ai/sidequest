@@ -7,19 +7,19 @@ import platform
 import shutil
 import sys
 
-from cli_autocorrect import __version__
-from cli_autocorrect.config import ConfigurationError, UserConfiguration, load_configuration
-from cli_autocorrect.corrector import FrequencyCorrector
-from cli_autocorrect.pty_proxy import TerminalRequiredError, run_in_pty
-from cli_autocorrect.updater import UpdateError, update_with_pipx
+from sidequest import __version__
+from sidequest.config import ConfigurationError, UserConfiguration, load_configuration
+from sidequest.corrector import FrequencyCorrector
+from sidequest.pty_proxy import TerminalRequiredError, run_in_pty
+from sidequest.updater import UpdateError, update_with_pipx
 
 SUPPORTED_APPS = {"claude", "codex"}
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cauto",
-        description="Run Claude Code or Codex with local autocorrect and text expansion.",
+        prog="sidequest",
+        description="Run Claude Code or Codex with prompt autocorrect and wait-time games.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
@@ -31,6 +31,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--config",
         metavar="PATH",
         help="load personal corrections and abbreviations from PATH",
+    )
+    parser.add_argument(
+        "--chess",
+        action="store_true",
+        help="open a resumable local chess game while the agent is working",
+    )
+    parser.add_argument(
+        "--stockfish",
+        metavar="PATH",
+        help="use a specific Stockfish executable for --chess",
     )
     parser.add_argument(
         "--doctor",
@@ -62,7 +72,12 @@ def main(argv: list[str] | None = None) -> int:
     if command and command[0] == "update":
         if len(command) != 1:
             parser.error("'update' does not accept additional arguments")
-        if arguments.no_corrections or arguments.config is not None:
+        if (
+            arguments.no_corrections
+            or arguments.config is not None
+            or arguments.chess
+            or arguments.stockfish is not None
+        ):
             parser.error("'update' cannot be combined with wrapper options")
         return _run_update()
 
@@ -74,6 +89,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("the prototype currently supports only 'claude' and 'codex'")
     if shutil.which(application) is None:
         parser.error(f"could not find '{application}' on PATH")
+    if arguments.stockfish is not None and not arguments.chess:
+        parser.error("--stockfish requires --chess")
+    if arguments.stockfish is not None and shutil.which(arguments.stockfish) is None:
+        parser.error(f"could not find Stockfish executable: {arguments.stockfish}")
 
     corrector = None
     if not arguments.no_corrections:
@@ -86,20 +105,41 @@ def main(argv: list[str] | None = None) -> int:
             abbreviations=configuration.abbreviations,
         )
 
+    companion = None
+    lifecycle = None
     try:
+        if arguments.chess:
+            from sidequest.chess_companion import ChessCompanion
+            from sidequest.chess_game import ComputerChessGame
+            from sidequest.lifecycle import AgentLifecycle, prepare_agent_command
+
+            companion = ChessCompanion(
+                ComputerChessGame(stockfish_path=arguments.stockfish)
+            )
+            lifecycle = AgentLifecycle(
+                companion,
+                watch_codex_input=application == "codex",
+            )
+            command = prepare_agent_command(command, application, companion)
+
         return run_in_pty(
             command,
             corrections=not arguments.no_corrections,
             corrector=corrector,
+            on_user_input=lifecycle.user_input if lifecycle else None,
+            on_child_output=lifecycle.child_output if lifecycle else None,
         )
     except TerminalRequiredError as error:
-        print(f"cauto: {error}", file=sys.stderr)
+        print(f"sidequest: {error}", file=sys.stderr)
         return 2
     except OSError as error:
-        print(f"cauto: terminal I/O failed: {error}", file=sys.stderr)
+        print(f"sidequest: terminal I/O failed: {error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         return 130
+    finally:
+        if companion is not None:
+            companion.close()
 
 
 def _load_configuration(path: str | None) -> UserConfiguration | None:
@@ -109,7 +149,7 @@ def _load_configuration(path: str | None) -> UserConfiguration | None:
             raise ConfigurationError(f"configuration file does not exist: {configuration.path}")
         return configuration
     except ConfigurationError as error:
-        print(f"cauto: {error}", file=sys.stderr)
+        print(f"sidequest: {error}", file=sys.stderr)
         return None
 
 
@@ -127,7 +167,7 @@ def _run_doctor(configuration: UserConfiguration) -> int:
             f"{len(configuration.abbreviations)} abbreviations)"
         )
 
-    print(f"CLI Autocorrect: {__version__}")
+    print(f"Sidequest: {__version__}")
     print(f"Python: {platform.python_version()}")
     print(f"Platform: {platform.system()} {platform.machine()}")
     print(f"Config: {configuration.path} — {config_status}")
@@ -147,18 +187,18 @@ def _run_doctor(configuration: UserConfiguration) -> int:
 
 
 def _run_update() -> int:
-    print("Updating cauto from GitHub with pipx...")
+    print("Updating Sidequest from GitHub with pipx...")
     try:
         result = update_with_pipx()
     except UpdateError as error:
-        print(f"cauto: update failed: {error}", file=sys.stderr)
+        print(f"sidequest: update failed: {error}", file=sys.stderr)
         return 1
 
     if result.previous_version == result.current_version:
-        print(f"Reinstalled cauto {result.current_version}.")
+        print(f"Reinstalled Sidequest {result.current_version}.")
     else:
         print(
-            f"Updated cauto {result.previous_version} -> {result.current_version}."
+            f"Updated Sidequest {result.previous_version} -> {result.current_version}."
         )
     return 0
 

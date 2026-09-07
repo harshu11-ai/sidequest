@@ -62,14 +62,14 @@ jobs:
         run: python -m twine check dist/*
       - name: Smoke-test built wheel
         run: |
-          python -m venv /tmp/cli-autocorrect-wheel-test
-          /tmp/cli-autocorrect-wheel-test/bin/pip install dist/*.whl
-          /tmp/cli-autocorrect-wheel-test/bin/cauto --version
-          /tmp/cli-autocorrect-wheel-test/bin/cauto --doctor
-          /tmp/cli-autocorrect-wheel-test/bin/cli-autocorrect --version
+          python -m venv /tmp/sidequest-wheel-test
+          /tmp/sidequest-wheel-test/bin/pip install dist/*.whl
+          /tmp/sidequest-wheel-test/bin/sidequest --version
+          /tmp/sidequest-wheel-test/bin/sidequest --doctor
+          /tmp/sidequest-wheel-test/bin/cauto --version
       - name: Upload distributions
         uses: actions/upload-artifact@v5
         with:
-          name: cli-autocorrect-distributions
+          name: sidequest-distributions
           path: dist/
           if-no-files-found: error

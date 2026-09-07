@@ -1,4 +1,4 @@
-"""Validated user configuration for CLI Autocorrect."""
+"""Validated user configuration for Sidequest."""
 
 from __future__ import annotations
 
@@ -31,12 +31,21 @@ def default_config_path() -> Path:
     """Return the platform-neutral per-user configuration path."""
     config_home = os.environ.get("XDG_CONFIG_HOME")
     base = Path(config_home).expanduser() if config_home else Path.home() / ".config"
+    return base / "sidequest" / "config.json"
+
+
+def legacy_config_path() -> Path:
+    """Return the previous config path retained for automatic migration."""
+    config_home = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(config_home).expanduser() if config_home else Path.home() / ".config"
     return base / "cli-autocorrect" / "config.json"
 
 
 def load_configuration(path: str | Path | None = None) -> UserConfiguration:
     """Load and validate a JSON configuration, or return an empty default."""
     config_path = Path(path).expanduser() if path is not None else default_config_path()
+    if path is None and not config_path.exists() and legacy_config_path().exists():
+        config_path = legacy_config_path()
     if not config_path.exists():
         return UserConfiguration(
             path=config_path,

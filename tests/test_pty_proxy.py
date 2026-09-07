@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from cli_autocorrect.pty_proxy import _shell_exit_code, _write_all
+from sidequest.pty_proxy import _shell_exit_code, _write_all
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,12 +19,12 @@ class PtyProxyIntegrationTests(unittest.TestCase):
         self.assertEqual(_shell_exit_code(7 << 8), 7)
         self.assertEqual(_shell_exit_code(15), 143)
 
-    @patch("cli_autocorrect.pty_proxy.os.write", side_effect=[2, 3])
+    @patch("sidequest.pty_proxy.os.write", side_effect=[2, 3])
     def test_write_all_retries_partial_writes(self, write) -> None:
         _write_all(9, b"hello")
         self.assertEqual(write.call_count, 2)
 
-    @patch("cli_autocorrect.pty_proxy.os.write", return_value=0)
+    @patch("sidequest.pty_proxy.os.write", return_value=0)
     def test_write_all_rejects_zero_progress(self, _write) -> None:
         with self.assertRaisesRegex(OSError, "made no progress"):
             _write_all(9, b"hello")
@@ -43,7 +43,7 @@ os.write(1, b"RECEIVED:" + data.hex().encode("ascii") + b"\\n")
 """
         driver_code = f"""
 import sys
-from cli_autocorrect.pty_proxy import run_in_pty
+from sidequest.pty_proxy import run_in_pty
 
 raise SystemExit(run_in_pty([sys.executable, "-c", {child_code!r}]))
 """

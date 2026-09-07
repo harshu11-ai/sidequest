@@ -5,8 +5,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from cli_autocorrect.config import ConfigurationError, default_config_path, load_configuration
-from cli_autocorrect.corrector import ConservativeCorrector
+from sidequest.config import (
+    ConfigurationError,
+    default_config_path,
+    load_configuration,
+)
+from sidequest.corrector import ConservativeCorrector
 
 
 class ConfigurationTests(unittest.TestCase):
@@ -14,7 +18,7 @@ class ConfigurationTests(unittest.TestCase):
         with patch.dict(os.environ, {"XDG_CONFIG_HOME": "/tmp/example-config"}):
             self.assertEqual(
                 default_config_path(),
-                Path("/tmp/example-config/cli-autocorrect/config.json"),
+                Path("/tmp/example-config/sidequest/config.json"),
             )
 
     def test_missing_default_configuration_is_valid(self) -> None:
@@ -23,6 +27,19 @@ class ConfigurationTests(unittest.TestCase):
         self.assertFalse(configuration.exists)
         self.assertEqual(configuration.corrections, {})
         self.assertEqual(configuration.abbreviations, {})
+
+    def test_loads_legacy_default_configuration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ, {"XDG_CONFIG_HOME": directory}
+        ):
+            legacy_path = Path(directory) / "cli-autocorrect" / "config.json"
+            legacy_path.parent.mkdir()
+            legacy_path.write_text('{"corrections":{"teh":"the"}}', encoding="utf-8")
+
+            configuration = load_configuration()
+
+        self.assertEqual(configuration.path, legacy_path)
+        self.assertEqual(configuration.corrections, {"teh": "the"})
 
     def test_loads_personal_corrections_and_abbreviations(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

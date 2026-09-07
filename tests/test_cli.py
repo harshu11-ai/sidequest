@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, sentinel
 
-from cli_autocorrect.cli import _run_doctor, main
-from cli_autocorrect.config import UserConfiguration
-from cli_autocorrect.updater import UpdateError, UpdateResult
+from sidequest.cli import _run_doctor, main
+from sidequest.config import UserConfiguration
+from sidequest.updater import UpdateError, UpdateResult
 
 
 class CliTests(unittest.TestCase):
@@ -17,9 +17,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("supports only 'claude' and 'codex'", stderr.getvalue())
 
-    @patch("cli_autocorrect.cli.run_in_pty", return_value=7)
-    @patch("cli_autocorrect.cli.shutil.which", return_value="/usr/local/bin/codex")
-    @patch("cli_autocorrect.cli.FrequencyCorrector", return_value=sentinel.corrector)
+    @patch("sidequest.cli.run_in_pty", return_value=7)
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
+    @patch("sidequest.cli.FrequencyCorrector", return_value=sentinel.corrector)
     def test_runs_supported_application(self, frequency_corrector, _which, run_in_pty) -> None:
         result = main(["codex", "--model", "example"])
         self.assertEqual(result, 7)
@@ -32,10 +32,12 @@ class CliTests(unittest.TestCase):
             ["codex", "--model", "example"],
             corrections=True,
             corrector=sentinel.corrector,
+            on_user_input=None,
+            on_child_output=None,
         )
 
-    @patch("cli_autocorrect.cli.run_in_pty", return_value=0)
-    @patch("cli_autocorrect.cli.shutil.which", return_value="/usr/local/bin/claude")
+    @patch("sidequest.cli.run_in_pty", return_value=0)
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/claude")
     def test_can_disable_corrections(self, _which, run_in_pty) -> None:
         result = main(["--no-corrections", "claude"])
         self.assertEqual(result, 0)
@@ -43,10 +45,46 @@ class CliTests(unittest.TestCase):
             ["claude"],
             corrections=False,
             corrector=None,
+            on_user_input=None,
+            on_child_output=None,
         )
 
-    @patch("cli_autocorrect.cli.run_in_pty")
-    @patch("cli_autocorrect.cli.shutil.which", return_value="/usr/local/bin/codex")
+    @patch("sidequest.lifecycle.prepare_agent_command", return_value=["codex", "prepared"])
+    @patch("sidequest.lifecycle.AgentLifecycle")
+    @patch("sidequest.chess_companion.ChessCompanion")
+    @patch("sidequest.chess_game.ComputerChessGame")
+    @patch("sidequest.cli.run_in_pty", return_value=0)
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
+    def test_chess_prepares_lifecycle_and_closes_companion(
+        self,
+        _which,
+        run_in_pty,
+        game_type,
+        companion_type,
+        lifecycle_type,
+        prepare_command,
+    ) -> None:
+        companion = companion_type.return_value
+        lifecycle = lifecycle_type.return_value
+
+        result = main(["--chess", "codex"])
+
+        self.assertEqual(result, 0)
+        game_type.assert_called_once_with(stockfish_path=None)
+        companion_type.assert_called_once_with(game_type.return_value)
+        lifecycle_type.assert_called_once_with(companion, watch_codex_input=True)
+        prepare_command.assert_called_once_with(["codex"], "codex", companion)
+        run_in_pty.assert_called_once_with(
+            ["codex", "prepared"],
+            corrections=True,
+            corrector=unittest.mock.ANY,
+            on_user_input=lifecycle.user_input,
+            on_child_output=lifecycle.child_output,
+        )
+        companion.close.assert_called_once_with()
+
+    @patch("sidequest.cli.run_in_pty")
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
     def test_rejects_missing_explicit_config(self, _which, run_in_pty) -> None:
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):
@@ -55,13 +93,13 @@ class CliTests(unittest.TestCase):
         self.assertIn("configuration file does not exist", stderr.getvalue())
         run_in_pty.assert_not_called()
 
-    @patch("cli_autocorrect.cli._run_doctor", return_value=0)
+    @patch("sidequest.cli._run_doctor", return_value=0)
     def test_runs_doctor_without_application(self, run_doctor) -> None:
         self.assertEqual(main(["--doctor"]), 0)
         run_doctor.assert_called_once()
 
     @patch(
-        "cli_autocorrect.cli.update_with_pipx",
+        "sidequest.cli.update_with_pipx",
         return_value=UpdateResult(previous_version="0.2.1", current_version="0.2.2"),
     )
     def test_updates_pipx_installation(self, update_with_pipx) -> None:
@@ -70,11 +108,11 @@ class CliTests(unittest.TestCase):
             result = main(["update"])
 
         self.assertEqual(result, 0)
-        self.assertIn("Updated cauto 0.2.1 -> 0.2.2.", stdout.getvalue())
+        self.assertIn("Updated Sidequest 0.2.1 -> 0.2.2.", stdout.getvalue())
         update_with_pipx.assert_called_once_with()
 
     @patch(
-        "cli_autocorrect.cli.update_with_pipx",
+        "sidequest.cli.update_with_pipx",
         return_value=UpdateResult(previous_version="0.2.2", current_version="0.2.2"),
     )
     def test_reports_same_version_reinstall(self, _update_with_pipx) -> None:
@@ -83,10 +121,10 @@ class CliTests(unittest.TestCase):
             result = main(["update"])
 
         self.assertEqual(result, 0)
-        self.assertIn("Reinstalled cauto 0.2.2.", stdout.getvalue())
+        self.assertIn("Reinstalled Sidequest 0.2.2.", stdout.getvalue())
 
     @patch(
-        "cli_autocorrect.cli.update_with_pipx",
+        "sidequest.cli.update_with_pipx",
         side_effect=UpdateError("the running copy is not managed by pipx"),
     )
     def test_reports_update_failure(self, _update_with_pipx) -> None:
@@ -111,8 +149,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("cannot be combined with wrapper options", stderr.getvalue())
 
-    @patch("cli_autocorrect.cli.shutil.which", return_value=None)
-    @patch("cli_autocorrect.cli.FrequencyCorrector")
+    @patch("sidequest.cli.shutil.which", return_value=None)
+    @patch("sidequest.cli.FrequencyCorrector")
     def test_doctor_reports_correction_and_abbreviation_counts(
         self,
         frequency_corrector,
