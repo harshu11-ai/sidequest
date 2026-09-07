@@ -119,6 +119,7 @@ select {
 button:hover { filter: brightness(1.08); }
 button.secondary { background: #2b3025; color: #f4f2e9; }
 select { width: 100%; background: #343a2d; color: #f4f2e9; }
+select:disabled { opacity: 0.55; cursor: not-allowed; }
 #return { width: 100%; }
 
 .finished {

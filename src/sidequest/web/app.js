@@ -78,6 +78,10 @@ function renderMetadata(nextState) {
   statusLabel.textContent = state.status;
   engineLabel.textContent = state.engine;
   difficulty.value = state.difficulty || "medium";
+  difficulty.disabled = state.last_move != null;
+  difficulty.title = difficulty.disabled
+    ? "Difficulty is locked once the game has started. Start a new game to change it."
+    : "";
   showLastMove();
   enableInputIfReady();
 

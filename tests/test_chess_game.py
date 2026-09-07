@@ -54,6 +54,19 @@ class ComputerChessGameTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsupported difficulty"):
             game.set_difficulty("impossible")
 
+    def test_rejects_difficulty_change_after_first_move(self) -> None:
+        game = ComputerChessGame(self.state_path, stockfish_path="")
+        game.move("e2e4")
+        with self.assertRaisesRegex(ValueError, "before the first move"):
+            game.set_difficulty("hard")
+
+    def test_difficulty_can_be_set_again_after_new_game(self) -> None:
+        game = ComputerChessGame(self.state_path, stockfish_path="")
+        game.move("e2e4")
+        game.new_game()
+        snapshot = game.set_difficulty("hard")
+        self.assertEqual(snapshot.difficulty, "hard")
+
     def test_invalid_saved_state_starts_a_new_game(self) -> None:
         self.state_path.write_text(json.dumps({"fen": "not a fen"}), encoding="utf-8")
         snapshot = ComputerChessGame(self.state_path, stockfish_path="").snapshot()
