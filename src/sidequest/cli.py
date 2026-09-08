@@ -19,7 +19,7 @@ SUPPORTED_APPS = {"claude", "codex"}
 # almost certainly means the user meant them for sidequest, not the app --
 # `command` uses argparse.REMAINDER, which swallows everything after the
 # application name literally, flags included, to forward it through unchanged.
-_MULTIPLAYER_FLAG_TOKENS = {"--multiplayer", "--join", "--relay-url"}
+_MULTIPLAYER_FLAG_TOKENS = {"--multiplayer", "--join", "--relay-url", "--profile"}
 # How long to hold the terminal open showing a freshly hosted room code before
 # handing off to the agent, which otherwise redraws the screen almost
 # immediately and scrolls the code away before it can be read or copied.
@@ -69,6 +69,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="multiplayer relay to use with --multiplayer/--join (defaults to the built-in relay)",
     )
     parser.add_argument(
+        "--profile",
+        metavar="NAME",
+        help="keep this room's seat separate from other sidequest sessions on this machine. "
+        "Only needed when running more than one --multiplayer/--join session on the same "
+        "machine (e.g. testing both sides of a game yourself) -- real opponents on their own "
+        "machines never need this.",
+    )
+    parser.add_argument(
         "--doctor",
         action="store_true",
         help="check the local installation and exit",
@@ -106,6 +114,7 @@ def main(argv: list[str] | None = None) -> int:
             or arguments.multiplayer
             or arguments.join is not None
             or arguments.relay_url is not None
+            or arguments.profile is not None
         ):
             parser.error("'update' cannot be combined with wrapper options")
         return _run_update()
@@ -129,6 +138,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--multiplayer/--join requires --chess")
     if arguments.relay_url is not None and not multiplayer_requested:
         parser.error("--relay-url requires --multiplayer or --join")
+    if arguments.profile is not None and not multiplayer_requested:
+        parser.error("--profile requires --multiplayer or --join")
     if any(token in _MULTIPLAYER_FLAG_TOKENS for token in command[1:]):
         parser.error(
             "--multiplayer/--join/--relay-url must come before the application name "
@@ -158,7 +169,9 @@ def main(argv: list[str] | None = None) -> int:
 
             multiplayer_game = None
             if multiplayer_requested:
-                multiplayer_game = _start_multiplayer(arguments.join, arguments.relay_url)
+                multiplayer_game = _start_multiplayer(
+                    arguments.join, arguments.relay_url, arguments.profile
+                )
                 if multiplayer_game is None:
                     return 1
 
@@ -192,13 +205,21 @@ def main(argv: list[str] | None = None) -> int:
             companion.close()
 
 
-def _start_multiplayer(code: str | None, relay_url: str | None):
-    from sidequest.chess.multiplayer import MultiplayerError, RemoteChessGame
+def _start_multiplayer(code: str | None, relay_url: str | None, profile: str | None):
+    from sidequest.chess.multiplayer import (
+        MultiplayerError,
+        RemoteChessGame,
+        default_multiplayer_state_path,
+    )
     from sidequest.chess.relay_client import DEFAULT_RELAY_URL, RelayClient, RelayError
 
     relay = RelayClient(relay_url or DEFAULT_RELAY_URL)
+    state_path = None
+    if profile is not None:
+        default_path = default_multiplayer_state_path()
+        state_path = default_path.with_name(f"multiplayer-{profile}.json")
     try:
-        game = RemoteChessGame(relay, code=code)
+        game = RemoteChessGame(relay, state_path, code=code)
     except (RelayError, MultiplayerError) as error:
         print(f"sidequest: multiplayer setup failed: {error}", file=sys.stderr)
         return None

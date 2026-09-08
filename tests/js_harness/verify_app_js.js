@@ -15,7 +15,11 @@ function makeElement(id) {
     _set: new Set(),
     toggle(name, on) { on ? this._set.add(name) : this._set.delete(name); },
     contains(name) { return this._set.has(name); },
-  }, addEventListener() {}, closest() { return null; }};
+  }, listeners: {}, addEventListener(type, fn) {
+    (this.listeners[type] ||= []).push(fn);
+  }, click() {
+    for (const fn of this.listeners.click || []) fn();
+  }, closest() { return null; }};
 }
 
 const elements = {};
@@ -192,4 +196,27 @@ assert.strictEqual(
 );
 console.log("stage7 (black->practice input color bug): re-registers for White -- OK");
 
-console.log("\nAll last-turn and input-color state-machine assertions passed.");
+// --- Stage 8: the "play vs bot" button must actually be wired up. Regression
+//     guard for a real shipped bug where toggleMode() existed but nothing
+//     ever called it -- clicking the button silently did nothing. ---
+assert.ok(
+  (elements["toggle-practice"].listeners.click || []).length > 0,
+  "stage8: #toggle-practice must have a click listener attached (toggleMode wired up)",
+);
+elements["toggle-practice"].click();
+(async () => {
+  // toggleMode() is async; let its rejected fetch() unwind before asserting.
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(
+    elements.message.textContent.length > 0,
+    "stage8: clicking the button must actually invoke toggleMode() (expected it to reach " +
+    "the stubbed fetch and surface an error, got no message at all)",
+  );
+  console.log("stage8 (play-vs-bot button click is wired to toggleMode): OK");
+
+  console.log("\nAll last-turn and input-color state-machine assertions passed.");
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

@@ -311,6 +311,7 @@ async function closeGameWindow() {
 
 document.querySelector("#new-game").addEventListener("click", resetGame);
 difficulty.addEventListener("change", changeDifficulty);
+togglePracticeButton.addEventListener("click", toggleMode);
 document.querySelector("#return").addEventListener("click", closeGameWindow);
 document.querySelector("#close-window").addEventListener("click", () => window.close());
 refresh();

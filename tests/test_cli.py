@@ -90,7 +90,7 @@ class CliTests(unittest.TestCase):
 
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
-            result = _start_multiplayer(None, None)
+            result = _start_multiplayer(None, None, None)
 
         self.assertIs(result, game_type.return_value)
         self.assertIn("ABC123", stdout.getvalue())
@@ -101,10 +101,28 @@ class CliTests(unittest.TestCase):
     def test_joining_does_not_pause(self, _game_type, sleep) -> None:
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
-            _start_multiplayer("ABC123", None)
+            _start_multiplayer("ABC123", None, None)
 
         self.assertIn("Joined room", stdout.getvalue())
         sleep.assert_not_called()
+
+    @patch("sidequest.cli.time.sleep")
+    @patch("sidequest.chess.multiplayer.RemoteChessGame")
+    def test_profile_scopes_the_local_seat_path(self, game_type, _sleep) -> None:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            _start_multiplayer(None, None, "p1")
+
+        state_path = game_type.call_args.args[1]
+        self.assertEqual(state_path.name, "multiplayer-p1.json")
+
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
+    def test_profile_requires_multiplayer_or_join(self, _which) -> None:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            main(["--chess", "--profile", "p1", "codex"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--profile requires --multiplayer or --join", stderr.getvalue())
 
     @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
     def test_rejects_multiplayer_flag_placed_after_application_name(self, _which) -> None:

@@ -120,10 +120,10 @@ sidequest --chess --join ABC123 claude    # joins with the code you were given
 ```
 
 Sidequest's own flags (`--chess`, `--multiplayer`, `--join`, `--relay-url`,
-`--stockfish`, ...) always go *before* `claude`/`codex` -- anything after the
-application name is passed straight through to it unchanged, so
-`sidequest --chess codex --multiplayer` sends `--multiplayer` to Codex, not to
-sidequest.
+`--profile`, `--stockfish`, ...) always go *before* `claude`/`codex` --
+anything after the application name is passed straight through to it
+unchanged, so `sidequest --chess codex --multiplayer` sends `--multiplayer`
+to Codex, not to sidequest.
 
 While it's not your turn, the game window offers a "play vs bot while you
 wait" toggle so you're not stuck watching an empty board -- your room stays
@@ -131,6 +131,17 @@ tracked in the background and you can switch back once your opponent moves.
 Games are hosted through a small relay service so the two of you don't need
 to be on the same network; pass `--relay-url` to use a self-hosted one
 instead of the default.
+
+Each seat is remembered per machine (under `~/.local/state/sidequest/`), so
+running both `--multiplayer` and `--join` on the *same* laptop -- for
+example, to try both sides yourself -- makes them collide on one shared
+seat. Real opponents on their own machines never hit this. If you do want to
+run two seats on one machine, give each its own `--profile`:
+
+```bash
+sidequest --chess --multiplayer --profile p1 codex   # host, seat "p1"
+sidequest --chess --join ABC123 --profile p2 claude  # guest, seat "p2"
+```
 
 Wrapper options such as `--config` and `--no-corrections` must come before the
 application name. Everything after `claude` or `codex` belongs to that app.
