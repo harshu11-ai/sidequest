@@ -5,8 +5,16 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Sequence
+from typing import Protocol
 
-from sidequest.chess.companion import ChessCompanion
+
+class LifecycleCompanion(Protocol):
+    """What AgentLifecycle needs from a sidequest companion (chess, videos, ...)."""
+
+    def show(self) -> None: ...
+    def hide(self) -> None: ...
+    def lifecycle_url(self, event: str) -> str: ...
+
 
 _CODEX_PROMPT_TEXT = b"Ask Codex to do anything"
 _ANSI_SEQUENCE = re.compile(
@@ -21,7 +29,7 @@ class AgentLifecycle:
 
     def __init__(
         self,
-        companion: ChessCompanion,
+        companion: LifecycleCompanion,
         *,
         watch_codex_input: bool = False,
     ) -> None:
@@ -60,7 +68,7 @@ class AgentLifecycle:
 def prepare_agent_command(
     command: Sequence[str],
     application: str,
-    companion: ChessCompanion,
+    companion: LifecycleCompanion,
 ) -> list[str]:
     """Add temporary lifecycle settings without writing user configuration."""
     prepared = list(command)
@@ -81,7 +89,7 @@ def prepare_agent_command(
     raise ValueError(f"unsupported application: {application}")
 
 
-def _claude_hook_settings(companion: ChessCompanion) -> dict[str, object]:
+def _claude_hook_settings(companion: LifecycleCompanion) -> dict[str, object]:
     def hook(event: str) -> list[dict[str, object]]:
         return [
             {

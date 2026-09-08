@@ -16,6 +16,7 @@ BRACKETED_PASTE_END = b"\x1b[201~"
 KITTY_SHIFT = 1
 KITTY_ALT = 2
 KITTY_CTRL = 4
+_ARROW_FINAL_BYTES = {ord("A"), ord("B"), ord("C"), ord("D")}  # up, down, right, left
 
 
 @dataclass(slots=True)
@@ -36,10 +37,16 @@ class InputProcessor:
         self._escape_candidate = bytearray()
         self._paste_end_candidate = bytearray()
         self.last_correction: AppliedCorrection | None = None
+        # Index into the bytes just returned by feed() where a submit
+        # boundary (Enter, Ctrl-C, Ctrl-D, ...) landed right after a
+        # correction was rewritten in. None when the last feed() call had
+        # nothing to split. See _handle_boundary for why this matters.
+        self.pending_submit_split: int | None = None
 
     def feed(self, data: bytes) -> bytes:
         """Process input bytes and return bytes to send to the child PTY."""
         output = bytearray()
+        self.pending_submit_split = None
         for byte in data:
             if self.in_paste:
                 output.append(byte)
@@ -102,6 +109,14 @@ class InputProcessor:
                 replacement = correction.replacement.encode("ascii")
                 output.extend(b"\x7f" * len(original))
                 output.extend(replacement)
+                if boundary in RESET_BYTES:
+                    # Without a split, the child receives backspaces +
+                    # replacement + Enter/Ctrl-C/Ctrl-D as one uninterrupted
+                    # burst with no inter-key delay -- several agent TUIs
+                    # mistake that shape for a paste and insert a literal
+                    # newline instead of submitting. The PTY loop uses this
+                    # index to send the boundary byte as its own write.
+                    self.pending_submit_split = len(output)
                 output.append(boundary)
                 if boundary == 0x20:
                     self.last_correction = AppliedCorrection(
@@ -146,6 +161,23 @@ class InputProcessor:
         self.token.clear()
         self.last_correction = None
 
+    def _invalidate_in_flight_word(self) -> None:
+        """Suspend correction only if a word is actually being composed.
+
+        For events we know only ever move the cursor (plain navigation
+        keys) rather than insert content the tracker doesn't know about,
+        the risk is narrower than an arbitrary unrecognized escape
+        sequence: a correction only ever backspaces exactly what feed()
+        itself tracked for the in-flight word, so navigation only risks
+        corrupting that if it interrupts a word actively being typed right
+        now. With nothing in flight, there's nothing for it to corrupt, so
+        a fresh word typed right after stays correctable.
+        """
+        if self.token:
+            self.safe_to_correct = False
+        self.token.clear()
+        self.last_correction = None
+
     def _reset_line(self) -> None:
         self.safe_to_correct = True
         self.token.clear()
@@ -173,6 +205,8 @@ class InputProcessor:
             if self._csi_is_complete(candidate):
                 if self._is_enhanced_line_reset(candidate):
                     self._reset_line()
+                elif self._is_navigation_key(candidate):
+                    self._invalidate_in_flight_word()
                 elif not (
                     self._is_terminal_report(candidate)
                     or self._is_safe_mode_key(candidate)
@@ -187,7 +221,10 @@ class InputProcessor:
 
         if candidate.startswith(b"\x1bO"):
             if len(candidate) >= 3:
-                self._invalidate_line()
+                if self._is_navigation_key(candidate):
+                    self._invalidate_in_flight_word()
+                else:
+                    self._invalidate_line()
                 self._escape_candidate.clear()
             return
 
@@ -215,6 +252,21 @@ class InputProcessor:
     @staticmethod
     def _csi_is_complete(candidate: bytes) -> bool:
         return len(candidate) >= 3 and 0x40 <= candidate[-1] <= 0x7E
+
+    @staticmethod
+    def _is_navigation_key(candidate: bytes) -> bool:
+        """Recognize a plain arrow key (CSI or legacy application-mode SS3).
+
+        These only ever move the cursor -- they never insert content the
+        tracker doesn't know about -- so they get gentler treatment than an
+        arbitrary unrecognized escape sequence (see
+        _invalidate_in_flight_word).
+        """
+        return (
+            len(candidate) == 3
+            and candidate[:2] in (b"\x1b[", b"\x1bO")
+            and candidate[2] in _ARROW_FINAL_BYTES
+        )
 
     @staticmethod
     def _is_terminal_report(candidate: bytes) -> bool:

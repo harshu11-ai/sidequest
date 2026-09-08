@@ -49,8 +49,8 @@ class CliTests(unittest.TestCase):
             on_child_output=None,
         )
 
-    @patch("sidequest.chess.lifecycle.prepare_agent_command", return_value=["codex", "prepared"])
-    @patch("sidequest.chess.lifecycle.AgentLifecycle")
+    @patch("sidequest.lifecycle.prepare_agent_command", return_value=["codex", "prepared"])
+    @patch("sidequest.lifecycle.AgentLifecycle")
     @patch("sidequest.chess.companion.ChessCompanion")
     @patch("sidequest.chess.game.ComputerChessGame")
     @patch("sidequest.cli.run_in_pty", return_value=0)
@@ -82,6 +82,58 @@ class CliTests(unittest.TestCase):
             on_child_output=lifecycle.child_output,
         )
         companion.close.assert_called_once_with()
+
+    @patch("sidequest.lifecycle.prepare_agent_command", return_value=["codex", "prepared"])
+    @patch("sidequest.lifecycle.AgentLifecycle")
+    @patch("sidequest.video.companion.VideoCompanion")
+    @patch("sidequest.video.queue.VideoQueue")
+    @patch("sidequest.cli.run_in_pty", return_value=0)
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
+    def test_videos_prepares_lifecycle_and_closes_companion(
+        self,
+        _which,
+        run_in_pty,
+        queue_type,
+        companion_type,
+        lifecycle_type,
+        prepare_command,
+    ) -> None:
+        companion = companion_type.return_value
+        lifecycle = lifecycle_type.return_value
+
+        result = main(["--videos", "codex"])
+
+        self.assertEqual(result, 0)
+        companion_type.assert_called_once_with(queue_type.return_value)
+        lifecycle_type.assert_called_once_with(companion, watch_codex_input=True)
+        prepare_command.assert_called_once_with(["codex"], "codex", companion)
+        run_in_pty.assert_called_once_with(
+            ["codex", "prepared"],
+            corrections=True,
+            corrector=unittest.mock.ANY,
+            on_user_input=lifecycle.user_input,
+            on_child_output=lifecycle.child_output,
+        )
+        companion.close.assert_called_once_with()
+
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
+    def test_chess_and_videos_cannot_be_combined(self, _which) -> None:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            main(["--chess", "--videos", "codex"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--chess and --videos cannot be combined", stderr.getvalue())
+
+    @patch("sidequest.video.queue.VideoQueue")
+    @patch("sidequest.video.companion.VideoCompanion")
+    @patch("sidequest.cli.run_in_pty", return_value=0)
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
+    def test_videos_profile_scopes_the_state_path(
+        self, _which, _run_in_pty, _companion_type, queue_type
+    ) -> None:
+        main(["--videos", "--profile", "p1", "codex"])
+        state_path = queue_type.call_args.args[0]
+        self.assertEqual(state_path.name, "video-p1.json")
 
     @patch("sidequest.cli.time.sleep")
     @patch("sidequest.chess.multiplayer.RemoteChessGame")
@@ -117,12 +169,12 @@ class CliTests(unittest.TestCase):
         self.assertEqual(state_path.name, "multiplayer-p1.json")
 
     @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
-    def test_profile_requires_multiplayer_or_join(self, _which) -> None:
+    def test_profile_requires_multiplayer_join_or_videos(self, _which) -> None:
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
             main(["--chess", "--profile", "p1", "codex"])
         self.assertEqual(raised.exception.code, 2)
-        self.assertIn("--profile requires --multiplayer or --join", stderr.getvalue())
+        self.assertIn("--profile requires --multiplayer, --join, or --videos", stderr.getvalue())
 
     @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
     def test_rejects_multiplayer_flag_placed_after_application_name(self, _which) -> None:

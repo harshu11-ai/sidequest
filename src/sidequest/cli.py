@@ -48,6 +48,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="open a resumable local chess game while the agent is working",
     )
     parser.add_argument(
+        "--videos",
+        action="store_true",
+        help="open a resumable queue of educational videos while the agent is working",
+    )
+    parser.add_argument(
         "--stockfish",
         metavar="PATH",
         help="use a specific Stockfish executable for --chess",
@@ -110,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
             arguments.no_corrections
             or arguments.config is not None
             or arguments.chess
+            or arguments.videos
             or arguments.stockfish is not None
             or arguments.multiplayer
             or arguments.join is not None
@@ -127,6 +133,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("the prototype currently supports only 'claude' and 'codex'")
     if shutil.which(application) is None:
         parser.error(f"could not find '{application}' on PATH")
+    if arguments.chess and arguments.videos:
+        parser.error("--chess and --videos cannot be combined")
     if arguments.stockfish is not None and not arguments.chess:
         parser.error("--stockfish requires --chess")
     if arguments.stockfish is not None and shutil.which(arguments.stockfish) is None:
@@ -138,8 +146,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--multiplayer/--join requires --chess")
     if arguments.relay_url is not None and not multiplayer_requested:
         parser.error("--relay-url requires --multiplayer or --join")
-    if arguments.profile is not None and not multiplayer_requested:
-        parser.error("--profile requires --multiplayer or --join")
+    if arguments.profile is not None and not multiplayer_requested and not arguments.videos:
+        parser.error("--profile requires --multiplayer, --join, or --videos")
     if any(token in _MULTIPLAYER_FLAG_TOKENS for token in command[1:]):
         parser.error(
             "--multiplayer/--join/--relay-url must come before the application name "
@@ -165,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
         if arguments.chess:
             from sidequest.chess.companion import ChessCompanion
             from sidequest.chess.game import ComputerChessGame
-            from sidequest.chess.lifecycle import AgentLifecycle, prepare_agent_command
+            from sidequest.lifecycle import AgentLifecycle, prepare_agent_command
 
             multiplayer_game = None
             if multiplayer_requested:
@@ -179,6 +187,23 @@ def main(argv: list[str] | None = None) -> int:
                 ComputerChessGame(stockfish_path=arguments.stockfish),
                 multiplayer=multiplayer_game,
             )
+            lifecycle = AgentLifecycle(
+                companion,
+                watch_codex_input=application == "codex",
+            )
+            command = prepare_agent_command(command, application, companion)
+        elif arguments.videos:
+            from sidequest.lifecycle import AgentLifecycle, prepare_agent_command
+            from sidequest.video.companion import VideoCompanion
+            from sidequest.video.queue import VideoQueue, default_video_state_path
+
+            state_path = None
+            if arguments.profile is not None:
+                state_path = default_video_state_path().with_name(
+                    f"video-{arguments.profile}.json"
+                )
+
+            companion = VideoCompanion(VideoQueue(state_path))
             lifecycle = AgentLifecycle(
                 companion,
                 watch_codex_input=application == "codex",

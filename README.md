@@ -27,6 +27,7 @@ yourself.
 - immediate Backspace to undo the last correction
 - optional personal corrections in a small JSON config file
 - optional, resumable chess breaks while an agent turn is running
+- optional, resumable educational-video breaks (3Blue1Brown, Veritasium, and others) while an agent turn is running
 - transparent `--no-corrections` mode for terminal troubleshooting
 
 ## Install
@@ -146,6 +147,25 @@ sidequest --chess --join ABC123 --profile p2 claude  # guest, seat "p2"
 Wrapper options such as `--config` and `--no-corrections` must come before the
 application name. Everything after `claude` or `codex` belongs to that app.
 
+To watch a queue of educational videos while Codex or Claude works, instead of
+chess:
+
+```bash
+sidequest --videos codex
+sidequest --videos claude
+```
+
+Submitting a prompt opens a video window styled like the chess board, playing
+through a bundled catalog of math, science, and engineering videos (3Blue1Brown,
+Veritasium, Kurzgesagt, and others). Play/pause, skip, and go back with the
+in-window controls; your place in the queue and playback position are saved
+locally and resume on your next prompt, in another session, or under a
+different agent entirely -- `--videos` is agent-agnostic the same way `--chess`
+is. `--chess` and `--videos` cannot be combined in one session. Like
+multiplayer chess, this feature streams from YouTube, so it needs a network
+connection and is not covered by the "no network requests" guarantee that
+applies to corrections and the local chess bot.
+
 Update a pipx-managed installation from GitHub with:
 
 ```bash
@@ -237,6 +257,9 @@ Prompts are processed in memory on the local machine. Sidequest does not
 store prompts, terminal output, environment variables, or source code.
 Chess mode stores only the current board position beneath
 `~/.local/state/sidequest/` (or `XDG_STATE_HOME`) so games can resume.
+Video mode stores only your queue position and playback position the same
+way; unlike chess against the built-in bot, it streams video from YouTube,
+so YouTube receives normal video-playback requests while it's open.
 
 ## License
 

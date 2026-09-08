@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#181a19">
+    <title>Sidequest Videos</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <main>
+      <header class="app-header">
+        <div class="brand">
+          <svg class="brand-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 5 6 7-6 7M13 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          <span>sidequest</span><span class="brand-divider">/</span><h1>Videos</h1>
+        </div>
+        <div class="agent-status"><span class="status-dot status-dot--online" id="agent-dot"></span><span id="agent-status">Connecting</span></div>
+      </header>
+
+      <section class="watch" aria-label="Video player">
+        <div class="player-column">
+          <div class="player-shell">
+            <div id="yt-player"></div>
+          </div>
+          <div class="player-row">
+            <span id="video-title" class="video-title">Loading…</span>
+            <span id="video-channel" class="player-detail">—</span>
+          </div>
+          <div class="controls">
+            <button id="prev" class="secondary" type="button"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6 4v12M16 5 8 10l8 5V5Z"/></svg> Previous video</button>
+            <button id="next" class="secondary" type="button">Next video <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M14 4v12M4 5l8 5-8 5V5Z"/></svg></button>
+          </div>
+        </div>
+
+        <aside class="side-column" aria-label="Up next">
+          <div class="status-group">
+            <div class="session-heading"><span class="eyebrow">SIDEQUEST BREAK</span><span class="mode-label">Educational</span></div>
+            <p id="turn-hint" class="turn-hint">A little space between prompts.</p>
+          </div>
+          <p id="last-turn-notice" class="last-turn-notice" aria-live="polite" hidden>Your agent finished. Your spot is saved.</p>
+          <ol id="queue-list" class="queue-list" aria-label="Video queue"></ol>
+          <div class="actions">
+            <button id="return" type="button">Return to work <span aria-hidden="true">↗</span></button>
+          </div>
+        </aside>
+      </section>
+      <footer><span>Learn something while you wait.</span><span class="footer-detail">SIDEQUEST <span aria-hidden="true">/</span> VIDEOS</span></footer>
+    </main>
+
+    <div id="finished" class="finished" role="dialog" aria-modal="true" aria-labelledby="finished-title" hidden>
+      <div>
+        <span class="finish-mark" aria-hidden="true">↗</span>
+        <p class="eyebrow">BACK TO THE GOOD STUFF</p>
+        <h2 id="finished-title">Your agent is ready.</h2>
+        <p>Your spot in the queue is saved. Pick up where you left off next time.</p>
+        <button id="close-window" type="button">Return to terminal <span aria-hidden="true">↗</span></button>
+      </div>
+    </div>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

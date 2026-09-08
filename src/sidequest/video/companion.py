@@ -1,4 +1,4 @@
-"""Loopback web companion shown while an agent turn is running."""
+"""Loopback web companion shown while an agent turn is running (video sidequest)."""
 
 from __future__ import annotations
 
@@ -13,39 +13,52 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from sidequest.browser_window import CompanionWindow
-from sidequest.chess.game import ComputerChessGame
-from sidequest.chess.multiplayer import RemoteChessGame
+from sidequest.video.queue import VideoQueue
 
 _MAX_REQUEST_BYTES = 4096
 _ASSET_TYPES = {
-    "/": ("chess.html", "text/html; charset=utf-8"),
+    "/": ("video.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/style.css": ("style.css", "text/css; charset=utf-8"),
-    "/cm-chessboard.js": ("cm-chessboard.js", "text/javascript; charset=utf-8"),
-    "/cm-chessboard.css": ("cm-chessboard.css", "text/css; charset=utf-8"),
-    "/cm-markers.js": ("cm-markers.js", "text/javascript; charset=utf-8"),
-    "/cm-markers.css": ("cm-markers.css", "text/css; charset=utf-8"),
-    "/cm-standard.svg": ("cm-standard.svg", "image/svg+xml"),
-    "/cm-markers.svg": ("cm-markers.svg", "image/svg+xml"),
 }
+# The YouTube IFrame Player API needs its loader script from youtube.com and
+# plays back (with YouTube's own full control bar -- seek, captions,
+# fullscreen, ...) through a youtube-nocookie.com frame; everything else on
+# this page -- markup, our own API calls -- stays same-origin like chess's
+# board.
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' https://www.youtube.com https://s.ytimg.com; "
+    "frame-src https://www.youtube-nocookie.com https://www.youtube.com; "
+    "img-src 'self' https://i.ytimg.com https://yt3.ggpht.com; "
+    "frame-ancestors 'none'"
+)
+# Fields shipped for each "up next" entry -- deliberately not the whole
+# catalog record (no need to ship views/category over the wire).
+_UPCOMING_FIELDS = ("id", "title", "channel", "duration_s")
+# Wider than chess's default window -- there's a 16:9 video plus a queue
+# sidebar to fit, not a square board.
+_WINDOW_WIDTH = 1180
+_WINDOW_HEIGHT = 760
 
 
-class ChessCompanion:
-    """Own a private local HTTP server and the current chess-window state."""
+class VideoCompanion:
+    """Own a private local HTTP server and the current video-queue state."""
 
     def __init__(
         self,
-        game: ComputerChessGame | None = None,
+        queue: VideoQueue | None = None,
         *,
-        multiplayer: RemoteChessGame | None = None,
         browser_open: Any | None = None,
         browser_close: Any | None = None,
     ) -> None:
-        self.game = game or ComputerChessGame()
-        self.multiplayer = multiplayer
-        self._mode = "multiplayer" if multiplayer is not None else "practice"
-        self._mode_lock = threading.Lock()
-        self._window = CompanionWindow() if browser_open is None else None
+        self.queue = queue or VideoQueue()
+        self._catalog_by_id = {str(entry["id"]): entry for entry in self.queue.catalog}
+        self._window = (
+            CompanionWindow(width=_WINDOW_WIDTH, height=_WINDOW_HEIGHT)
+            if browser_open is None
+            else None
+        )
         self._browser_open = browser_open or self._window.open
         default_close = self._window.hide if self._window else (lambda: None)
         self._browser_close = browser_close or default_close
@@ -56,13 +69,10 @@ class ChessCompanion:
         self._server.daemon_threads = True
         self._thread = threading.Thread(
             target=self._server.serve_forever,
-            name="sidequest-chess-server",
+            name="sidequest-video-server",
             daemon=True,
         )
         self._thread.start()
-        # Polling (and so the presence heartbeat your opponent's "connected"
-        # dot relies on) is tied to show()/hide() below, not to the
-        # companion's own lifetime -- see there for why.
 
     @property
     def base_url(self) -> str:
@@ -83,20 +93,11 @@ class ChessCompanion:
             if self._active:
                 return
             self._active = True
-        # Presence is "are you actually looking at the board right now", not
-        # "is your sidequest process still running" -- an opponent's
-        # connection dot should go dark the moment they dismiss the window
-        # (or their agent finishes and it closes itself), not linger on
-        # until the whole process eventually exits.
-        if self.multiplayer is not None:
-            self.multiplayer.start_polling()
         try:
             self._browser_open(self.play_url)
         except OSError:
             with self._active_lock:
                 self._active = False
-            if self.multiplayer is not None:
-                self.multiplayer.stop_polling()
 
     def hide(self) -> None:
         with self._active_lock:
@@ -104,8 +105,6 @@ class ChessCompanion:
             self._active = False
         if was_active:
             self._browser_close()
-            if self.multiplayer is not None:
-                self.multiplayer.stop_polling()
 
     def is_active(self) -> bool:
         with self._active_lock:
@@ -116,8 +115,6 @@ class ChessCompanion:
         self._server.shutdown()
         self._server.server_close()
         self._thread.join(timeout=2)
-        if self.multiplayer is not None:
-            self.multiplayer.stop_polling()
         if self._window is not None:
             self._window.close()
 
@@ -140,14 +137,14 @@ class ChessCompanion:
         parsed = urlparse(handler.path)
         if parsed.path in _ASSET_TYPES:
             asset_name, content_type = _ASSET_TYPES[parsed.path]
-            content = files("sidequest.chess").joinpath("web", asset_name).read_bytes()
+            content = files("sidequest.video").joinpath("web", asset_name).read_bytes()
             self._respond(handler, HTTPStatus.OK, content, content_type)
             return
         if parsed.path == "/api/state":
             if not self._authorized(parsed.query):
                 self._json(handler, HTTPStatus.FORBIDDEN, {"error": "forbidden"})
                 return
-            state = self._augment(self._active_game().snapshot().as_dict())
+            state = self._augment(self.queue.snapshot().as_dict())
             self._json(handler, HTTPStatus.OK, state)
             return
         self._json(handler, HTTPStatus.NOT_FOUND, {"error": "not found"})
@@ -165,7 +162,7 @@ class ChessCompanion:
             self.hide()
             self._json(handler, HTTPStatus.OK, {})
             return
-        if parsed.path not in {"/api/move", "/api/new", "/api/difficulty", "/api/mode"}:
+        if parsed.path not in {"/api/position", "/api/skip", "/api/previous"}:
             self._json(handler, HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         if handler.headers.get_content_type() != "application/json":
@@ -180,55 +177,25 @@ class ChessCompanion:
             return
         try:
             payload = json.loads(handler.rfile.read(length) or b"{}")
-            if parsed.path == "/api/mode":
-                self._set_mode(payload.get("mode", ""))
-                snapshot_dict = self._active_game().snapshot().as_dict()
-            elif parsed.path == "/api/new":
-                if self._current_mode() == "multiplayer":
-                    raise ValueError("start a new game from the practice board instead")
-                snapshot_dict = self.game.new_game().as_dict()
-            elif parsed.path == "/api/difficulty":
-                if self._current_mode() == "multiplayer":
-                    raise ValueError("difficulty only applies to the practice board")
-                snapshot_dict = self.game.set_difficulty(payload.get("difficulty", "")).as_dict()
+            if parsed.path == "/api/position":
+                snapshot_dict = self.queue.record_position(payload.get("position_s", 0)).as_dict()
+            elif parsed.path == "/api/skip":
+                snapshot_dict = self.queue.skip().as_dict()
             else:
-                snapshot_dict = self._active_game().move(payload.get("move", "")).as_dict()
-        except (json.JSONDecodeError, AttributeError, ValueError) as error:
+                snapshot_dict = self.queue.previous().as_dict()
+        except (json.JSONDecodeError, AttributeError, ValueError, TypeError) as error:
             self._json(handler, HTTPStatus.BAD_REQUEST, {"error": str(error)})
             return
         self._json(handler, HTTPStatus.OK, self._augment(snapshot_dict))
 
-    def _active_game(self) -> ComputerChessGame | RemoteChessGame:
-        if self._current_mode() == "multiplayer" and self.multiplayer is not None:
-            return self.multiplayer
-        return self.game
-
-    def _current_mode(self) -> str:
-        with self._mode_lock:
-            return self._mode
-
-    def _set_mode(self, mode: str) -> None:
-        if self.multiplayer is None:
-            raise ValueError("multiplayer is not enabled for this session")
-        if mode not in {"practice", "multiplayer"}:
-            raise ValueError(f"unsupported mode: {mode}")
-        with self._mode_lock:
-            self._mode = mode
-
     def _augment(self, state: dict[str, object]) -> dict[str, object]:
         state["active"] = self.is_active()
-        state["mode"] = self._current_mode()
-        if self.multiplayer is not None:
-            room = self.multiplayer.snapshot()
-            state["multiplayer"] = {
-                "room_code": room.room_code,
-                "you": room.you,
-                "your_turn": room.your_turn,
-                "room_status": room.room_status,
-                "opponent_connected": room.opponent_connected,
-                "result": room.result,
-            }
+        state["upcoming"] = [self._trim(video_id) for video_id in state["upcoming"]]
         return state
+
+    def _trim(self, video_id: str) -> dict[str, object]:
+        entry = self._catalog_by_id.get(video_id, {})
+        return {field: entry.get(field) for field in _UPCOMING_FIELDS}
 
     def _authorized(self, query: str) -> bool:
         supplied = parse_qs(query).get("token", [""])[0]
@@ -241,7 +208,7 @@ class ChessCompanion:
         payload: dict[str, object],
     ) -> None:
         content = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        ChessCompanion._respond(handler, status, content, "application/json")
+        VideoCompanion._respond(handler, status, content, "application/json")
 
     @staticmethod
     def _respond(
@@ -255,6 +222,6 @@ class ChessCompanion:
         handler.send_header("Content-Length", str(len(content)))
         handler.send_header("Cache-Control", "no-store")
         handler.send_header("X-Content-Type-Options", "nosniff")
-        handler.send_header("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'")
+        handler.send_header("Content-Security-Policy", _CSP)
         handler.end_headers()
         handler.wfile.write(content)
