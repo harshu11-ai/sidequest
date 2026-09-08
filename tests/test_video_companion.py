@@ -4,6 +4,7 @@ import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
+from unittest.mock import patch
 
 from sidequest.video.companion import VideoCompanion
 from sidequest.video.queue import VideoQueue
@@ -35,6 +36,10 @@ def _post(url: str, payload: dict) -> dict:
 
 class VideoCompanionTests(unittest.TestCase):
     def setUp(self) -> None:
+        # A no-op shuffle keeps the draw order deterministic (catalog order)
+        # so tests can assert on specific video ids instead of "some id".
+        self.shuffle_patcher = patch("sidequest.video.queue.random.shuffle")
+        self.shuffle_patcher.start()
         self.temporary_directory = tempfile.TemporaryDirectory()
         queue = VideoQueue(
             Path(self.temporary_directory.name) / "video.json",
@@ -51,6 +56,7 @@ class VideoCompanionTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.companion.close()
         self.temporary_directory.cleanup()
+        self.shuffle_patcher.stop()
 
     def _record_close(self) -> None:
         self.close_count += 1
@@ -73,18 +79,13 @@ class VideoCompanionTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 403)
         raised.exception.close()
 
-    def test_state_endpoint_returns_current_video(self) -> None:
+    def test_state_endpoint_returns_current_video_and_trimmed_upcoming(self) -> None:
         with urllib.request.urlopen(self._url("/api/state"), timeout=2) as response:
             payload = json.load(response)
         self.assertEqual(payload["video"]["id"], "a")
-        self.assertEqual(payload["count"], 2)
         self.assertFalse(payload["active"])
-
-    def test_catalog_endpoint_trims_fields(self) -> None:
-        with urllib.request.urlopen(self._url("/api/catalog"), timeout=2) as response:
-            payload = json.load(response)
-        self.assertEqual(len(payload), 2)
-        self.assertEqual(set(payload[0]), {"id", "title", "channel", "duration_s"})
+        self.assertEqual([entry["id"] for entry in payload["upcoming"]], ["b"])
+        self.assertEqual(set(payload["upcoming"][0]), {"id", "title", "channel", "duration_s"})
 
     def test_position_endpoint_updates_queue(self) -> None:
         payload = _post(self._url("/api/position"), {"position_s": 12.5})
@@ -100,10 +101,6 @@ class VideoCompanionTests(unittest.TestCase):
         payload = _post(self._url("/api/skip"), {})
         self.assertEqual(payload["video"]["id"], "b")
         self.assertEqual(payload["watched"], ["a"])
-
-    def test_previous_endpoint_wraps_backward(self) -> None:
-        payload = _post(self._url("/api/previous"), {})
-        self.assertEqual(payload["video"]["id"], "b")
 
     def test_lifecycle_endpoint_changes_visibility(self) -> None:
         start = urllib.request.Request(

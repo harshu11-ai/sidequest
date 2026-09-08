@@ -32,14 +32,9 @@ h1 { font-size: 14px; font-weight: 450; letter-spacing: 0; color: #b6bdb2; }
 .player-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 10px; }
 .video-title { font-size: 14px; font-weight: 550; color: #eceee8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-detail { color: var(--muted); font: 11px var(--mono); letter-spacing: .04em; flex-shrink: 0; }
-.controls { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-.controls button { width: 33px; height: 33px; padding: 0; display: grid; place-items: center; flex-shrink: 0; }
-.controls button svg { width: 16px; height: 16px; }
-.scrub { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
-.time { color: var(--muted); font: 11px var(--mono); width: 32px; flex-shrink: 0; }
-.time:last-child { text-align: right; }
-.progress-track { flex: 1; height: 4px; border-radius: 2px; background: #2c3128; overflow: hidden; }
-.progress-fill { height: 100%; width: 0%; background: var(--accent); }
+.controls { margin-top: 10px; }
+.controls button { display: inline-flex; align-items: center; gap: 8px; }
+.controls button svg { width: 14px; height: 14px; }
 
 .side-column { width: 208px; flex-shrink: 0; padding-top: 8px; display: flex; flex-direction: column; gap: 10px; }
 .session-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }

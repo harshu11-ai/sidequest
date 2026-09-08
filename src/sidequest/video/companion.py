@@ -22,18 +22,20 @@ _ASSET_TYPES = {
     "/style.css": ("style.css", "text/css; charset=utf-8"),
 }
 # The YouTube IFrame Player API needs its loader script from youtube.com and
-# plays back through a youtube-nocookie.com frame; everything else on this
-# page -- markup, our own API calls -- stays same-origin like chess's board.
+# plays back (with YouTube's own full control bar -- seek, captions,
+# fullscreen, ...) through a youtube-nocookie.com frame; everything else on
+# this page -- markup, our own API calls -- stays same-origin like chess's
+# board.
 _CSP = (
     "default-src 'self'; "
     "script-src 'self' https://www.youtube.com https://s.ytimg.com; "
     "frame-src https://www.youtube-nocookie.com https://www.youtube.com; "
-    "img-src 'self' https://i.ytimg.com; "
+    "img-src 'self' https://i.ytimg.com https://yt3.ggpht.com; "
     "frame-ancestors 'none'"
 )
-# Fields the client needs to render the queue sidebar -- deliberately not the
-# whole catalog record (e.g. no need to ship views/category over the wire).
-_CATALOG_FIELDS = ("id", "title", "channel", "duration_s")
+# Fields shipped for each "up next" entry -- deliberately not the whole
+# catalog record (no need to ship views/category over the wire).
+_UPCOMING_FIELDS = ("id", "title", "channel", "duration_s")
 
 
 class VideoCompanion:
@@ -47,6 +49,7 @@ class VideoCompanion:
         browser_close: Any | None = None,
     ) -> None:
         self.queue = queue or VideoQueue()
+        self._catalog_by_id = {str(entry["id"]): entry for entry in self.queue.catalog}
         self._window = CompanionWindow() if browser_open is None else None
         self._browser_open = browser_open or self._window.open
         default_close = self._window.hide if self._window else (lambda: None)
@@ -136,17 +139,6 @@ class VideoCompanion:
             state = self._augment(self.queue.snapshot().as_dict())
             self._json(handler, HTTPStatus.OK, state)
             return
-        if parsed.path == "/api/catalog":
-            if not self._authorized(parsed.query):
-                self._json(handler, HTTPStatus.FORBIDDEN, {"error": "forbidden"})
-                return
-            trimmed = [
-                {field: entry.get(field) for field in _CATALOG_FIELDS}
-                for entry in self.queue.catalog
-            ]
-            content = json.dumps(trimmed, separators=(",", ":")).encode("utf-8")
-            self._respond(handler, HTTPStatus.OK, content, "application/json")
-            return
         self._json(handler, HTTPStatus.NOT_FOUND, {"error": "not found"})
 
     def _handle_post(self, handler: BaseHTTPRequestHandler) -> None:
@@ -162,7 +154,7 @@ class VideoCompanion:
             self.hide()
             self._json(handler, HTTPStatus.OK, {})
             return
-        if parsed.path not in {"/api/position", "/api/skip", "/api/previous"}:
+        if parsed.path not in {"/api/position", "/api/skip"}:
             self._json(handler, HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         if handler.headers.get_content_type() != "application/json":
@@ -179,10 +171,8 @@ class VideoCompanion:
             payload = json.loads(handler.rfile.read(length) or b"{}")
             if parsed.path == "/api/position":
                 snapshot_dict = self.queue.record_position(payload.get("position_s", 0)).as_dict()
-            elif parsed.path == "/api/skip":
-                snapshot_dict = self.queue.skip().as_dict()
             else:
-                snapshot_dict = self.queue.previous().as_dict()
+                snapshot_dict = self.queue.skip().as_dict()
         except (json.JSONDecodeError, AttributeError, ValueError, TypeError) as error:
             self._json(handler, HTTPStatus.BAD_REQUEST, {"error": str(error)})
             return
@@ -190,7 +180,12 @@ class VideoCompanion:
 
     def _augment(self, state: dict[str, object]) -> dict[str, object]:
         state["active"] = self.is_active()
+        state["upcoming"] = [self._trim(video_id) for video_id in state["upcoming"]]
         return state
+
+    def _trim(self, video_id: str) -> dict[str, object]:
+        entry = self._catalog_by_id.get(video_id, {})
+        return {field: entry.get(field) for field in _UPCOMING_FIELDS}
 
     def _authorized(self, query: str) -> bool:
         supplied = parse_qs(query).get("token", [""])[0]

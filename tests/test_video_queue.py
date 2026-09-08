@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from sidequest.video.queue import VideoQueue
 
@@ -16,6 +17,7 @@ def _entry(letter: str, duration_s: int) -> dict[str, object]:
 
 
 _CATALOG = [_entry("a", 100), _entry("b", 200), _entry("c", 300)]
+_IDS = {entry["id"] for entry in _CATALOG}
 
 
 class VideoQueueTests(unittest.TestCase):
@@ -29,13 +31,16 @@ class VideoQueueTests(unittest.TestCase):
     def _queue(self) -> VideoQueue:
         return VideoQueue(self.state_path, catalog=_CATALOG)
 
-    def test_starts_at_the_first_catalog_entry(self) -> None:
+    def test_starts_on_some_catalog_entry(self) -> None:
         snapshot = self._queue().snapshot()
-        self.assertEqual(snapshot.video["id"], "a")
-        self.assertEqual(snapshot.index, 0)
-        self.assertEqual(snapshot.count, 3)
+        self.assertIn(snapshot.video["id"], _IDS)
         self.assertEqual(snapshot.position_s, 0.0)
         self.assertEqual(snapshot.watched, ())
+
+    def test_upcoming_excludes_the_current_video_and_caps_at_catalog_size(self) -> None:
+        snapshot = self._queue().snapshot()
+        self.assertNotIn(snapshot.video["id"], snapshot.upcoming)
+        self.assertLessEqual(len(snapshot.upcoming), len(_CATALOG) - 1)
 
     def test_records_position_for_current_video(self) -> None:
         queue = self._queue()
@@ -50,48 +55,57 @@ class VideoQueueTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid position"):
             self._queue().record_position("not a number")
 
-    def test_skip_advances_and_marks_watched(self) -> None:
+    def test_skip_moves_to_a_different_video_and_marks_watched(self) -> None:
         queue = self._queue()
+        first_id = queue.snapshot().video["id"]
         queue.record_position(50)
+
         snapshot = queue.skip()
-        self.assertEqual(snapshot.video["id"], "b")
+
+        self.assertIn(snapshot.video["id"], _IDS)
+        self.assertNotEqual(snapshot.video["id"], first_id)
         self.assertEqual(snapshot.position_s, 0.0)
-        self.assertEqual(snapshot.watched, ("a",))
+        self.assertEqual(snapshot.watched, (first_id,))
 
-    def test_skip_wraps_around_the_catalog(self) -> None:
+    @patch("sidequest.video.queue.random.shuffle")
+    def test_repeated_skips_eventually_touch_every_video(self, _shuffle) -> None:
+        # Shuffle is a no-op here (identity order) so this stays deterministic
+        # instead of relying on randomness to happen to cover every video.
         queue = self._queue()
-        queue.skip()
-        queue.skip()
-        snapshot = queue.skip()
-        self.assertEqual(snapshot.video["id"], "a")
-        self.assertEqual(snapshot.watched, ("a", "b", "c"))
-
-    def test_previous_wraps_backward(self) -> None:
-        snapshot = self._queue().previous()
-        self.assertEqual(snapshot.video["id"], "c")
+        seen = {queue.snapshot().video["id"]}
+        for _ in range(len(_CATALOG) * 3):
+            seen.add(queue.skip().video["id"])
+        self.assertEqual(seen, _IDS)
 
     def test_persists_and_restores_position(self) -> None:
         first = self._queue()
         first.skip()
+        current_id = first.snapshot().video["id"]
         first.record_position(17)
 
         restored = VideoQueue(self.state_path, catalog=_CATALOG).snapshot()
 
-        self.assertEqual(restored.video["id"], "b")
+        self.assertEqual(restored.video["id"], current_id)
         self.assertEqual(restored.position_s, 17.0)
-        self.assertEqual(restored.watched, ("a",))
+        self.assertGreaterEqual(len(restored.watched), 1)
 
     def test_invalid_saved_state_starts_over(self) -> None:
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
-        self.state_path.write_text('{"index": "nonsense"}', encoding="utf-8")
+        self.state_path.write_text('{"current_id": 123}', encoding="utf-8")
         snapshot = VideoQueue(self.state_path, catalog=_CATALOG).snapshot()
-        self.assertEqual(snapshot.video["id"], "a")
+        self.assertIn(snapshot.video["id"], _IDS)
 
-    def test_out_of_range_saved_index_falls_back_to_start(self) -> None:
+    def test_unknown_saved_current_id_falls_back_to_a_fresh_draw(self) -> None:
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
-        self.state_path.write_text('{"index": 99}', encoding="utf-8")
+        self.state_path.write_text('{"current_id": "not-in-catalog"}', encoding="utf-8")
         snapshot = VideoQueue(self.state_path, catalog=_CATALOG).snapshot()
-        self.assertEqual(snapshot.index, 0)
+        self.assertIn(snapshot.video["id"], _IDS)
+
+    def test_single_video_catalog_does_not_crash_on_skip(self) -> None:
+        queue = VideoQueue(self.state_path, catalog=[_entry("a", 100)])
+        snapshot = queue.skip()
+        self.assertEqual(snapshot.video["id"], "a")
+        self.assertEqual(snapshot.upcoming, ())
 
 
 if __name__ == "__main__":
