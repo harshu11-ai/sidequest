@@ -124,9 +124,38 @@ class InputProcessorTests(unittest.TestCase):
         value = b"src/teh.py "
         self.assertEqual(processor.feed(value), value)
 
-    def test_arrow_key_suspends_correction_until_new_line(self) -> None:
+    def test_arrow_key_with_nothing_in_flight_does_not_suspend_correction(self) -> None:
+        # A correction only ever backspaces exactly what it tracked for the
+        # word it's rewriting -- with no word in flight when the arrow key
+        # arrives, there's nothing for the cursor jump to put at risk, so a
+        # fresh word typed right after it should still get corrected.
         processor = InputProcessor()
-        self.assertEqual(processor.feed(b"\x1b[Ateh "), b"\x1b[Ateh ")
+        self.assertEqual(processor.feed(b"\x1b[Ateh "), b"\x1b[Ateh\x7f\x7f\x7fthe ")
+
+    def test_arrow_key_mid_word_suspends_correction_until_new_line(self) -> None:
+        # Interrupting a word that's actively being composed is the case
+        # that's actually unsafe: what gets typed next may no longer line up
+        # with where the tracker thinks the cursor is.
+        processor = InputProcessor()
+        self.assertEqual(processor.feed(b"te"), b"te")
+        self.assertEqual(processor.feed(b"\x1b[A"), b"\x1b[A")
+        self.assertEqual(processor.feed(b"h "), b"h ")
+        self.assertEqual(processor.feed(b"\nteh "), b"\nteh\x7f\x7f\x7fthe ")
+
+    def test_ss3_arrow_key_with_nothing_in_flight_does_not_suspend_correction(self) -> None:
+        # Some terminals send arrows as SS3 (application cursor mode)
+        # rather than CSI; both encodings get the same gentler treatment.
+        processor = InputProcessor()
+        self.assertEqual(processor.feed(b"\x1bOAteh "), b"\x1bOAteh\x7f\x7f\x7fthe ")
+
+    def test_non_arrow_csi_key_still_suspends_correction_with_nothing_in_flight(self) -> None:
+        # Confirms the relaxation is scoped to plain navigation, not
+        # unrecognized escape sequences generally: an unknown key (here,
+        # the legacy Delete key) still suspends correction for the rest of
+        # the line even with nothing in flight when it arrives.
+        processor = InputProcessor()
+        delete_key = b"\x1b[3~"
+        self.assertEqual(processor.feed(delete_key + b"teh "), delete_key + b"teh ")
         self.assertEqual(processor.feed(b"\nteh "), b"\nteh\x7f\x7f\x7fthe ")
 
     def test_terminal_startup_reports_do_not_suspend_correction(self) -> None:
@@ -152,12 +181,15 @@ class InputProcessorTests(unittest.TestCase):
 
     def test_ctrl_c_resets_safe_typing_state(self) -> None:
         processor = InputProcessor()
-        processor.feed(b"\x1b[A")
+        # Interrupt a word actually in flight, not a blank line, so this is
+        # exercising Ctrl-C's reset rather than depending on whether an
+        # empty-buffer arrow key itself poisons state (it no longer does).
+        processor.feed(b"x\x1b[A")
         self.assertEqual(processor.feed(b"teh \x03teh "), b"teh \x03teh\x7f\x7f\x7fthe ")
 
     def test_enhanced_ctrl_c_resets_safe_typing_state(self) -> None:
         processor = InputProcessor()
-        processor.feed(b"\x1b[A")
+        processor.feed(b"x\x1b[A")
         ctrl_c = b"\x1b[99;5u"
         self.assertEqual(
             processor.feed(b"teh " + ctrl_c + b"teh "),
