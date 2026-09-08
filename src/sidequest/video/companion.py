@@ -38,8 +38,8 @@ _CSP = (
 _UPCOMING_FIELDS = ("id", "title", "channel", "duration_s")
 # Wider than chess's default window -- there's a 16:9 video plus a queue
 # sidebar to fit, not a square board.
-_WINDOW_WIDTH = 1180
-_WINDOW_HEIGHT = 760
+_WINDOW_WIDTH = 1000
+_WINDOW_HEIGHT = 600
 
 
 class VideoCompanion:
