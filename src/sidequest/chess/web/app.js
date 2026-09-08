@@ -106,6 +106,20 @@ function renderMetadata(nextState) {
 
   const multiplayer = state.multiplayer;
   const inMultiplayerMode = Boolean(multiplayer) && state.mode === "multiplayer";
+  document.querySelector("#agent-status").textContent = state.active ? "Agent working" : "Agent ready";
+  document.querySelector("#agent-dot").classList.toggle("status-dot--online", state.active);
+  document.querySelector("#mode-label").textContent = inMultiplayerMode ? "Multiplayer" : "Practice";
+  document.querySelector("#opponent-name").textContent = inMultiplayerMode ? "Opponent" : "Practice bot";
+  document.querySelector("#opponent-color").textContent = yourColor() === "white" ? "BLACK" : "WHITE";
+  document.querySelector("#player-piece").textContent = yourColor() === "white" ? "♙" : "♟";
+  document.querySelector("#move-number").textContent = `MOVE ${(state.fen.split(" ")[5] || "1").padStart(2, "0")}`;
+  document.querySelector("#last-move").textContent = state.last_move
+    ? `${state.last_move.slice(0, 2)} → ${state.last_move.slice(2, 4)}${state.last_move[4] ? ` =${state.last_move[4].toUpperCase()}` : ""}`
+    : "—";
+  document.querySelector("#turn-hint").textContent =
+    state.status === "Checkmate" || state.status === "Stalemate" ? "Game complete. Stay for another?"
+      : state.turn === yourColor() ? "Take your time. Find your next move."
+        : "The board is in your opponent’s hands.";
   multiplayerPanel.hidden = !multiplayer;
   practicePanel.hidden = inMultiplayerMode;
   newGameButton.hidden = inMultiplayerMode;
@@ -172,7 +186,7 @@ function createBoard(initialState) {
     assetsUrl: "/",
     style: {
       cssClass: "sidequest-board",
-      showCoordinates: false,
+      showCoordinates: true,
       borderType: CMChessboard.BORDER_TYPE.none,
       animationDuration,
       pieces: {file: "/cm-standard.svg"},
@@ -195,7 +209,7 @@ async function submitMove(move) {
   const previousState = state;
   const wasAwaitingLastTurn = awaitingLastTurn;
   isAnimating = true;
-  statusLabel.textContent = "Computer thinking";
+  statusLabel.textContent = state.mode === "multiplayer" ? "Sending move…" : "Computer thinking";
   try {
     const nextState = await request("/api/move", {move});
     if (nextState.player_fen) {
