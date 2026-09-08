@@ -150,10 +150,24 @@ class ChessCompanionMultiplayerTests(unittest.TestCase):
     def _url(self, path: str) -> str:
         return self.companion.play_url.replace("/?", f"{path}?")
 
-    def test_starts_and_stops_background_polling(self) -> None:
+    def test_polling_follows_window_visibility_not_process_lifetime(self) -> None:
+        # Presence (the opponent's "connected" dot) should track whether this
+        # player is actually looking at the board, not whether the whole
+        # sidequest process happens to still be alive.
+        self.multiplayer.start_polling.assert_not_called()
+
+        self.companion.show()
         self.multiplayer.start_polling.assert_called_once_with()
-        self.companion.close()
+        self.multiplayer.stop_polling.assert_not_called()
+
+        self.companion.hide()
         self.multiplayer.stop_polling.assert_called_once_with()
+
+        self.companion.show()
+        self.assertEqual(self.multiplayer.start_polling.call_count, 2)
+
+        self.companion.close()
+        self.assertGreaterEqual(self.multiplayer.stop_polling.call_count, 2)
 
     def test_state_defaults_to_multiplayer_mode_with_room_metadata(self) -> None:
         with urllib.request.urlopen(self._url("/api/state"), timeout=2) as response:

@@ -136,6 +136,10 @@ class RemoteChessGame:
     def start_polling(self, interval: float = _POLL_INTERVAL_SECONDS) -> None:
         if self._poll_thread is not None:
             return
+        # A prior stop_polling() leaves this set; clear it or the loop below
+        # would see it as already-signalled and exit before its first tick,
+        # silently turning every restart after the first stop into a no-op.
+        self._stop.clear()
 
         def _loop() -> None:
             while not self._stop.wait(interval):

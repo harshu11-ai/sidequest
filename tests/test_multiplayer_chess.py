@@ -201,6 +201,37 @@ class RemoteChessGameTests(unittest.TestCase):
         finally:
             game.stop_polling()
 
+    def test_polling_resumes_after_being_stopped(self) -> None:
+        # Regression: stop_polling() used to leave its threading.Event set,
+        # so a later start_polling() would spawn a thread that saw the event
+        # already signalled and exited before its first tick -- polling
+        # (and so the opponent's presence heartbeat) could never restart
+        # after the first stop for the rest of the game.
+        relay = Mock()
+        relay.create_room.return_value = RoomSeat(code="ABC123", token="tok", you="white")
+        relay.get_state.return_value = state_body()
+        game = RemoteChessGame(relay, self.state_path)
+
+        game.start_polling(interval=0.01)
+        try:
+            deadline = time.monotonic() + 2.0
+            while relay.get_state.call_count < 2 and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertGreaterEqual(relay.get_state.call_count, 2)
+        finally:
+            game.stop_polling()
+
+        calls_before_restart = relay.get_state.call_count
+        game.start_polling(interval=0.01)
+        try:
+            target = calls_before_restart + 2
+            deadline = time.monotonic() + 2.0
+            while relay.get_state.call_count < target and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertGreaterEqual(relay.get_state.call_count, target)
+        finally:
+            game.stop_polling()
+
 
 if __name__ == "__main__":
     unittest.main()
