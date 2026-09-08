@@ -39,7 +39,7 @@ _UPCOMING_FIELDS = ("id", "title", "channel", "duration_s")
 # Wider than chess's default window -- there's a 16:9 video plus a queue
 # sidebar to fit, not a square board.
 _WINDOW_WIDTH = 1000
-_WINDOW_HEIGHT = 600
+_WINDOW_HEIGHT = 650
 
 
 class VideoCompanion:
