@@ -36,10 +36,16 @@ class InputProcessor:
         self._escape_candidate = bytearray()
         self._paste_end_candidate = bytearray()
         self.last_correction: AppliedCorrection | None = None
+        # Index into the bytes just returned by feed() where a submit
+        # boundary (Enter, Ctrl-C, Ctrl-D, ...) landed right after a
+        # correction was rewritten in. None when the last feed() call had
+        # nothing to split. See _handle_boundary for why this matters.
+        self.pending_submit_split: int | None = None
 
     def feed(self, data: bytes) -> bytes:
         """Process input bytes and return bytes to send to the child PTY."""
         output = bytearray()
+        self.pending_submit_split = None
         for byte in data:
             if self.in_paste:
                 output.append(byte)
@@ -102,6 +108,14 @@ class InputProcessor:
                 replacement = correction.replacement.encode("ascii")
                 output.extend(b"\x7f" * len(original))
                 output.extend(replacement)
+                if boundary in RESET_BYTES:
+                    # Without a split, the child receives backspaces +
+                    # replacement + Enter/Ctrl-C/Ctrl-D as one uninterrupted
+                    # burst with no inter-key delay -- several agent TUIs
+                    # mistake that shape for a paste and insert a literal
+                    # newline instead of submitting. The PTY loop uses this
+                    # index to send the boundary byte as its own write.
+                    self.pending_submit_split = len(output)
                 output.append(boundary)
                 if boundary == 0x20:
                     self.last_correction = AppliedCorrection(

@@ -61,6 +61,34 @@ class InputProcessorTests(unittest.TestCase):
         processor = InputProcessor(corrector)
         self.assertEqual(processor.feed(b"rt\n"), b"rt\x7f\x7frun tests\n")
 
+    def test_correction_before_enter_marks_a_submit_split(self) -> None:
+        # A correction landing right on Enter should be flagged for the PTY
+        # loop to send as two writes -- see pending_submit_split's docstring
+        # for why a single burst can be misread as a paste by the child.
+        processor = InputProcessor()
+        result = processor.feed(b"teh\n")
+        self.assertEqual(result, b"teh\x7f\x7f\x7fthe\n")
+        self.assertEqual(processor.pending_submit_split, len(result) - 1)
+        self.assertEqual(result[processor.pending_submit_split :], b"\n")
+
+    def test_correction_before_space_does_not_mark_a_submit_split(self) -> None:
+        processor = InputProcessor()
+        processor.feed(b"teh ")
+        self.assertIsNone(processor.pending_submit_split)
+
+    def test_plain_enter_without_a_correction_does_not_mark_a_submit_split(self) -> None:
+        processor = InputProcessor()
+        processor.feed(b"hello")
+        processor.feed(b"\n")
+        self.assertIsNone(processor.pending_submit_split)
+
+    def test_submit_split_does_not_leak_into_the_next_feed_call(self) -> None:
+        processor = InputProcessor()
+        processor.feed(b"teh\n")
+        self.assertIsNotNone(processor.pending_submit_split)
+        processor.feed(b"hi")
+        self.assertIsNone(processor.pending_submit_split)
+
     def test_does_not_expand_abbreviation_inside_paste(self) -> None:
         corrector = ConservativeCorrector(abbreviations={"pr": "pull request"})
         processor = InputProcessor(corrector)

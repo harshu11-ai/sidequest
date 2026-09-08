@@ -23,6 +23,14 @@ class TerminalRequiredError(RuntimeError):
     """Raised when the proxy is invoked without an interactive terminal."""
 
 
+# How long to pause between the rewritten text and a submit boundary
+# (Enter, Ctrl-C, Ctrl-D, ...) that immediately followed a correction.
+# Long enough to reliably land as a separate read() on the child's side
+# (well past normal scheduling jitter), short enough that no one typing
+# through it would ever notice. See InputProcessor.pending_submit_split.
+_SUBMIT_SPLIT_DELAY_S = 0.02
+
+
 def run_in_pty(
     command: Sequence[str],
     *,
@@ -98,8 +106,14 @@ def run_in_pty(
                 if on_user_input is not None:
                     on_user_input(user_input)
                 child_input = processor.feed(user_input) if processor else user_input
+                split = processor.pending_submit_split if processor else None
                 try:
-                    _write_all(master_fd, child_input)
+                    if split is None:
+                        _write_all(master_fd, child_input)
+                    else:
+                        _write_all(master_fd, child_input[:split])
+                        time.sleep(_SUBMIT_SPLIT_DELAY_S)
+                        _write_all(master_fd, child_input[split:])
                 except OSError as error:
                     if error.errno == errno.EIO:
                         break
