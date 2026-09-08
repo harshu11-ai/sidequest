@@ -42,6 +42,15 @@ class CompanionWindow:
                     f"--window-size={self._width},{self._height}",
                     "--no-first-run",
                     "--no-default-browser-check",
+                    # Each window gets a brand-new temp profile (see
+                    # __init__), so Chrome's normal per-site autoplay
+                    # heuristic (which needs a history of engagement) never
+                    # has anything to go on. This is a single-purpose,
+                    # sidequest-controlled window, not general browsing, so
+                    # it's safe to just always allow autoplay here -- lets
+                    # the video companion's own playVideo() call actually
+                    # start playback (with sound) the moment it opens.
+                    "--autoplay-policy=no-user-gesture-required",
                 ],
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
