@@ -1,0 +1,482 @@
+[
+  {
+    "id": "3blue1brown-solving-wordle-using-information-theory",
+    "title": "Solving Wordle using information theory",
+    "channel": "3Blue1Brown",
+    "youtube_id": "v68zYyaEmEA",
+    "published": "2022-02-06",
+    "views_at_catalog_time": 11821337,
+    "duration_s": 1838,
+    "category": "math"
+  },
+  {
+    "id": "3blue1brown-transformers-the-tech-behind-llms-deep-l",
+    "title": "Transformers, the tech behind LLMs | Deep Learning Chapter 5",
+    "channel": "3Blue1Brown",
+    "youtube_id": "wjZofJX0v4M",
+    "published": "2024-04-01",
+    "views_at_catalog_time": 11072973,
+    "duration_s": 1634,
+    "category": "math"
+  },
+  {
+    "id": "3blue1brown-large-language-models-explained-briefly",
+    "title": "Large Language Models explained briefly",
+    "channel": "3Blue1Brown",
+    "youtube_id": "LPZh9BOjkQs",
+    "published": "2024-11-20",
+    "views_at_catalog_time": 7400583,
+    "duration_s": 478,
+    "category": "math"
+  },
+  {
+    "id": "3blue1brown-how-are-holograms-possible",
+    "title": "How are holograms possible?",
+    "channel": "3Blue1Brown",
+    "youtube_id": "EmKQsSDlaa4",
+    "published": "2024-10-05",
+    "views_at_catalog_time": 6993303,
+    "duration_s": 2784,
+    "category": "math"
+  },
+  {
+    "id": "3blue1brown-oh-wait-actually-the-best-wordle-opener-",
+    "title": "Oh, wait, actually the best Wordle opener is not “crane”…",
+    "channel": "3Blue1Brown",
+    "youtube_id": "fRed0Xmc2Wg",
+    "published": "2022-02-13",
+    "views_at_catalog_time": 6696306,
+    "duration_s": 653,
+    "category": "math"
+  },
+  {
+    "id": "veritasium-can-you-swim-in-shade-balls",
+    "title": "Can you swim in shade balls?",
+    "channel": "Veritasium",
+    "youtube_id": "zQ2ZJuUJeyo",
+    "published": "2025-08-19",
+    "views_at_catalog_time": 64553599,
+    "duration_s": 148,
+    "category": "science"
+  },
+  {
+    "id": "veritasium-why-it-was-almost-impossible-to-make-the",
+    "title": "Why It Was Almost Impossible to Make the Blue LED",
+    "channel": "Veritasium",
+    "youtube_id": "AF8d72mA41M",
+    "published": "2024-02-08",
+    "views_at_catalog_time": 53412040,
+    "duration_s": 2025,
+    "category": "science"
+  },
+  {
+    "id": "veritasium-inside-the-navy-s-indoor-ocean",
+    "title": "Inside The Navy's Indoor Ocean",
+    "channel": "Veritasium",
+    "youtube_id": "pir_muTzYM8",
+    "published": "2022-12-01",
+    "views_at_catalog_time": 45153055,
+    "duration_s": 1225,
+    "category": "science"
+  },
+  {
+    "id": "veritasium-the-man-who-accidentally-killed-the-most",
+    "title": "The Man Who Accidentally Killed The Most People In History",
+    "channel": "Veritasium",
+    "youtube_id": "IV3dnLzthDA",
+    "published": "2022-04-22",
+    "views_at_catalog_time": 43126259,
+    "duration_s": 1497,
+    "category": "science"
+  },
+  {
+    "id": "veritasium-the-closest-thing-we-have-to-alien-techn",
+    "title": "The Closest Thing We Have to Alien Technology",
+    "channel": "Veritasium",
+    "youtube_id": "MiUHjLxm3V0",
+    "published": "2025-12-31",
+    "views_at_catalog_time": 38017030,
+    "duration_s": 3300,
+    "category": "science"
+  },
+  {
+    "id": "vsauce-i-built-an-emordnilap-machine",
+    "title": "I Built An Emordnilap Machine",
+    "channel": "Vsauce",
+    "youtube_id": "65_8t1OEZSc",
+    "published": "2024-12-07",
+    "views_at_catalog_time": 96906367,
+    "duration_s": 144,
+    "category": "science"
+  },
+  {
+    "id": "vsauce-the-man-who-saved-the-world",
+    "title": "The Man Who Saved The World",
+    "channel": "Vsauce",
+    "youtube_id": "JyJ6K_n5bIM",
+    "published": "2024-12-02",
+    "views_at_catalog_time": 25907463,
+    "duration_s": 128,
+    "category": "science"
+  },
+  {
+    "id": "vsauce-euler-s-disk",
+    "title": "Euler's Disk",
+    "channel": "Vsauce",
+    "youtube_id": "Q8M3Il0Zv68",
+    "published": "2025-01-12",
+    "views_at_catalog_time": 21906585,
+    "duration_s": 96,
+    "category": "science"
+  },
+  {
+    "id": "vsauce-did-people-used-to-look-older",
+    "title": "Did People Used To Look Older?",
+    "channel": "Vsauce",
+    "youtube_id": "vjqt8T3tJIE",
+    "published": "2022-07-11",
+    "views_at_catalog_time": 20725488,
+    "duration_s": 1374,
+    "category": "science"
+  },
+  {
+    "id": "numberphile-a-sudoku-secret-to-blow-your-mind-number",
+    "title": "A Sudoku Secret to Blow Your Mind - Numberphile",
+    "channel": "Numberphile",
+    "youtube_id": "pezlnN4X52g",
+    "published": "2024-01-04",
+    "views_at_catalog_time": 3825914,
+    "duration_s": 368,
+    "category": "math"
+  },
+  {
+    "id": "numberphile-the-clever-way-to-count-tanks-numberphil",
+    "title": "The Clever Way to Count Tanks - Numberphile",
+    "channel": "Numberphile",
+    "youtube_id": "WLCwMRJBhuI",
+    "published": "2024-07-31",
+    "views_at_catalog_time": 2310493,
+    "duration_s": 1005,
+    "category": "math"
+  },
+  {
+    "id": "numberphile-the-reciprocals-of-primes-numberphile",
+    "title": "The Reciprocals of Primes - Numberphile",
+    "channel": "Numberphile",
+    "youtube_id": "DmfxIhmGPP4",
+    "published": "2022-03-14",
+    "views_at_catalog_time": 2130435,
+    "duration_s": 931,
+    "category": "math"
+  },
+  {
+    "id": "numberphile-why-7-is-weird-numberphile",
+    "title": "Why 7 is Weird - Numberphile",
+    "channel": "Numberphile",
+    "youtube_id": "UDQjn_-pDSs",
+    "published": "2022-08-22",
+    "views_at_catalog_time": 1996602,
+    "duration_s": 723,
+    "category": "math"
+  },
+  {
+    "id": "kurzgesagt-in-a-nutshell-what-happens-if-the-moon-crashes-into-ea",
+    "title": "What Happens if the Moon Crashes into Earth?",
+    "channel": "Kurzgesagt – In a Nutshell",
+    "youtube_id": "lheapd7bgLA",
+    "published": "2022-02-08",
+    "views_at_catalog_time": 22433127,
+    "duration_s": 628,
+    "category": "science"
+  },
+  {
+    "id": "kurzgesagt-in-a-nutshell-you-are-immune-against-every-disease",
+    "title": "You Are Immune Against Every Disease",
+    "channel": "Kurzgesagt – In a Nutshell",
+    "youtube_id": "LmpuerlbJu0",
+    "published": "2021-11-02",
+    "views_at_catalog_time": 19701878,
+    "duration_s": 706,
+    "category": "science"
+  },
+  {
+    "id": "kurzgesagt-in-a-nutshell-why-we-should-not-look-for-aliens-the-da",
+    "title": "Why We Should NOT Look For Aliens - The Dark Forest",
+    "channel": "Kurzgesagt – In a Nutshell",
+    "youtube_id": "xAUJYP8tnRE",
+    "published": "2021-12-14",
+    "views_at_catalog_time": 17532619,
+    "duration_s": 631,
+    "category": "science"
+  },
+  {
+    "id": "kurzgesagt-in-a-nutshell-4-5-billion-years-in-1-hour",
+    "title": "4.5 Billion Years in 1 Hour",
+    "channel": "Kurzgesagt – In a Nutshell",
+    "youtube_id": "S7TUe5w6RHo",
+    "published": "2023-11-10",
+    "views_at_catalog_time": 17416933,
+    "duration_s": 3811,
+    "category": "science"
+  },
+  {
+    "id": "kurzgesagt-in-a-nutshell-the-deadliest-virus-on-earth",
+    "title": "The Deadliest Virus on Earth",
+    "channel": "Kurzgesagt – In a Nutshell",
+    "youtube_id": "4u5I8GYB79Y",
+    "published": "2022-07-26",
+    "views_at_catalog_time": 16641386,
+    "duration_s": 540,
+    "category": "science"
+  },
+  {
+    "id": "cgp-grey-so-many-state-flags-failed-i-had-to-spli",
+    "title": "So Many State Flags Failed I Had to Split the F Tier",
+    "channel": "CGP Grey",
+    "youtube_id": "l4w6808wJcU",
+    "published": "2023-04-02",
+    "views_at_catalog_time": 19025686,
+    "duration_s": 1133,
+    "category": "general-knowledge"
+  },
+  {
+    "id": "cgp-grey-highway-numbers-aren-t-names-they-re-coo",
+    "title": "Highway Numbers Aren’t Names. They’re Coordinates.",
+    "channel": "CGP Grey",
+    "youtube_id": "8Fn_30AD7Pk",
+    "published": "2022-02-10",
+    "views_at_catalog_time": 13650618,
+    "duration_s": 510,
+    "category": "general-knowledge"
+  },
+  {
+    "id": "cgp-grey-one-typo-wrong-continent",
+    "title": "One Typo, Wrong Continent",
+    "channel": "CGP Grey",
+    "youtube_id": "jfOUVYQnuhw",
+    "published": "2022-12-02",
+    "views_at_catalog_time": 11428626,
+    "duration_s": 964,
+    "category": "general-knowledge"
+  },
+  {
+    "id": "cgp-grey-someone-dead-ruined-my-life-again",
+    "title": "Someone Dead Ruined My Life… Again.",
+    "channel": "CGP Grey",
+    "youtube_id": "qEV9qoup2mQ",
+    "published": "2021-09-09",
+    "views_at_catalog_time": 10148837,
+    "duration_s": 1292,
+    "category": "general-knowledge"
+  },
+  {
+    "id": "smartereveryday-bullets-hitting-bullets-in-slow-motion-t",
+    "title": "Bullets HITTING Bullets in Slow Motion - THE IMPOSSIBLE SHOT - Smarter Every Day 287",
+    "channel": "SmarterEveryDay",
+    "youtube_id": "tcQVrD7RnNI",
+    "published": "2023-06-10",
+    "views_at_catalog_time": 25235729,
+    "duration_s": 2128,
+    "category": "engineering"
+  },
+  {
+    "id": "smartereveryday-roboforming-the-future-of-metalworking-i",
+    "title": "ROBOFORMING: The Future of Metalworking? (I Had NO IDEA This Was Possible) - Smarter Every Day 290",
+    "channel": "SmarterEveryDay",
+    "youtube_id": "dCXu8Ju_fdY",
+    "published": "2023-09-16",
+    "views_at_catalog_time": 8276825,
+    "duration_s": 1787,
+    "category": "engineering"
+  },
+  {
+    "id": "smartereveryday-what-does-a-gong-sound-like-when-hit-wit",
+    "title": "What does a Gong Sound Like when Hit with a 1189mph Baseball? - Smarter Every Day 267",
+    "channel": "SmarterEveryDay",
+    "youtube_id": "at-xZA5U1ps",
+    "published": "2021-12-07",
+    "views_at_catalog_time": 7604406,
+    "duration_s": 1414,
+    "category": "engineering"
+  },
+  {
+    "id": "smartereveryday-refueling-a-nuclear-reactor-smarter-ever",
+    "title": "Refueling a NUCLEAR REACTOR - Smarter Every Day 311",
+    "channel": "SmarterEveryDay",
+    "youtube_id": "v0afQ6w3Bjw",
+    "published": "2025-11-03",
+    "views_at_catalog_time": 7242962,
+    "duration_s": 6368,
+    "category": "engineering"
+  },
+  {
+    "id": "stand-up-maths-the-1-200-year-maths-mistake",
+    "title": "The 1,200 Year Maths Mistake",
+    "channel": "Stand-up Maths",
+    "youtube_id": "FAdmpAZTH_M",
+    "published": "2024-02-22",
+    "views_at_catalog_time": 3393233,
+    "duration_s": 1150,
+    "category": "math"
+  },
+  {
+    "id": "stand-up-maths-someone-improved-my-code-by-40-832-277-7",
+    "title": "Someone improved my code by 40,832,277,770%",
+    "channel": "Stand-up Maths",
+    "youtube_id": "c33AZBnRHks",
+    "published": "2022-10-17",
+    "views_at_catalog_time": 3023923,
+    "duration_s": 1727,
+    "category": "math"
+  },
+  {
+    "id": "stand-up-maths-why-it-s-mathematically-impossible-to-sh",
+    "title": "Why it’s mathematically impossible to share fair",
+    "channel": "Stand-up Maths",
+    "youtube_id": "GVhFBujPlVo",
+    "published": "2021-11-25",
+    "views_at_catalog_time": 2142957,
+    "duration_s": 2405,
+    "category": "math"
+  },
+  {
+    "id": "steve-mould-the-assassin-s-teapot-is-weird",
+    "title": "The Assassin's Teapot Is Weird",
+    "channel": "Steve Mould",
+    "youtube_id": "jJL0XoNBaac",
+    "published": "2021-12-10",
+    "views_at_catalog_time": 50666853,
+    "duration_s": 552,
+    "category": "physics"
+  },
+  {
+    "id": "steve-mould-wirtz-pumps-are-really-clever",
+    "title": "Wirtz pumps are really clever",
+    "channel": "Steve Mould",
+    "youtube_id": "wCxRHueX6jQ",
+    "published": "2023-10-10",
+    "views_at_catalog_time": 18729797,
+    "duration_s": 725,
+    "category": "physics"
+  },
+  {
+    "id": "steve-mould-self-healing-material",
+    "title": "Self-Healing Material",
+    "channel": "Steve Mould",
+    "youtube_id": "DAUl6upA3q4",
+    "published": "2022-06-17",
+    "views_at_catalog_time": 17237088,
+    "duration_s": 588,
+    "category": "physics"
+  },
+  {
+    "id": "steve-mould-can-water-solve-a-maze",
+    "title": "Can water solve a maze?",
+    "channel": "Steve Mould",
+    "youtube_id": "81ebWToAnvA",
+    "published": "2023-03-31",
+    "views_at_catalog_time": 16539371,
+    "duration_s": 549,
+    "category": "physics"
+  },
+  {
+    "id": "pbs-space-time-why-is-1-137-one-of-the-greatest-unsolve",
+    "title": "Why Is 1/137 One of the Greatest Unsolved Problems In Physics?",
+    "channel": "PBS Space Time",
+    "youtube_id": "RCSSgxV9qNw",
+    "published": "2022-09-28",
+    "views_at_catalog_time": 4546774,
+    "duration_s": 938,
+    "category": "physics"
+  },
+  {
+    "id": "pbs-space-time-are-there-undiscovered-elements-beyond-t",
+    "title": "Are there Undiscovered Elements Beyond The Periodic Table?",
+    "channel": "PBS Space Time",
+    "youtube_id": "prvXCuEA1lw",
+    "published": "2022-11-16",
+    "views_at_catalog_time": 4543820,
+    "duration_s": 1257,
+    "category": "physics"
+  },
+  {
+    "id": "pbs-space-time-is-interstellar-travel-impossible",
+    "title": "Is Interstellar Travel Impossible?",
+    "channel": "PBS Space Time",
+    "youtube_id": "wdP_UDSsuro",
+    "published": "2022-06-22",
+    "views_at_catalog_time": 4487549,
+    "duration_s": 1234,
+    "category": "physics"
+  },
+  {
+    "id": "pbs-space-time-the-final-barrier-to-nearly-infinite-ene",
+    "title": "The Final Barrier to (Nearly) Infinite Energy",
+    "channel": "PBS Space Time",
+    "youtube_id": "nAJN1CrJsVE",
+    "published": "2025-02-13",
+    "views_at_catalog_time": 4137522,
+    "duration_s": 1294,
+    "category": "physics"
+  },
+  {
+    "id": "practical-engineering-the-bizarre-paths-of-groundwater-around-",
+    "title": "The Bizarre Paths of Groundwater Around Structures",
+    "channel": "Practical Engineering",
+    "youtube_id": "bY1E2IkvQ3k",
+    "published": "2022-06-07",
+    "views_at_catalog_time": 14218190,
+    "duration_s": 842,
+    "category": "engineering"
+  },
+  {
+    "id": "practical-engineering-the-hidden-engineering-of-landfills",
+    "title": "The Hidden Engineering of Landfills",
+    "channel": "Practical Engineering",
+    "youtube_id": "HRx_dZawN44",
+    "published": "2024-09-03",
+    "views_at_catalog_time": 11860690,
+    "duration_s": 1024,
+    "category": "engineering"
+  },
+  {
+    "id": "practical-engineering-the-wild-story-of-the-taum-sauk-dam-fail",
+    "title": "The Wild Story of the Taum Sauk Dam Failure",
+    "channel": "Practical Engineering",
+    "youtube_id": "zRM2AnwNY20",
+    "published": "2024-10-15",
+    "views_at_catalog_time": 11259824,
+    "duration_s": 1210,
+    "category": "engineering"
+  },
+  {
+    "id": "real-engineering-the-insane-engineering-of-the-f-35b",
+    "title": "The Insane Engineering of the F-35B",
+    "channel": "Real Engineering",
+    "youtube_id": "1lCOgFPtaZ4",
+    "published": "2023-01-28",
+    "views_at_catalog_time": 10735323,
+    "duration_s": 1504,
+    "category": "engineering"
+  },
+  {
+    "id": "real-engineering-the-insane-engineering-of-james-webb-tel",
+    "title": "The Insane Engineering of James Webb Telescope",
+    "channel": "Real Engineering",
+    "youtube_id": "aICaAEXDJQQ",
+    "published": "2021-12-18",
+    "views_at_catalog_time": 8802965,
+    "duration_s": 1872,
+    "category": "engineering"
+  },
+  {
+    "id": "real-engineering-a-new-way-to-achieve-nuclear-fusion-heli",
+    "title": "A New Way to Achieve Nuclear Fusion: Helion",
+    "channel": "Real Engineering",
+    "youtube_id": "_bDXXWQxK38",
+    "published": "2022-12-17",
+    "views_at_catalog_time": 8302346,
+    "duration_s": 1848,
+    "category": "engineering"
+  }
+]
