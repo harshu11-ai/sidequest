@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#181a19">
     <title>Sidequest Chess</title>
     <link rel="stylesheet" href="/cm-chessboard.css">
     <link rel="stylesheet" href="/cm-markers.css">
@@ -10,60 +11,65 @@
   </head>
   <body>
     <main>
-      <header>
-        <div>
-          <p class="eyebrow">SIDEQUEST</p>
-          <h1>Your agent is working</h1>
+      <header class="app-header">
+        <div class="brand">
+          <svg class="brand-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 5 6 7-6 7M13 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          <span>sidequest</span><span class="brand-divider">/</span><h1>Chess</h1>
         </div>
+        <div class="agent-status"><span class="status-dot status-dot--online" id="agent-dot"></span><span id="agent-status">Connecting</span></div>
       </header>
 
-      <section class="game">
-        <div id="board" class="board-shell" aria-label="Chess board"></div>
-        <div class="side-column">
-          <button id="new-game" class="secondary" type="button">New game</button>
-          <aside aria-label="Game controls">
-            <div class="turn-indicator"><span id="turn-dot"></span><span id="status">Loading…</span></div>
-            <p id="last-turn-notice" class="last-turn-notice" aria-live="polite" hidden>
-              Your agent finished — make your last move to close this window.
-            </p>
-            <p class="side-note" id="side-note">You play White</p>
-            <div id="multiplayer-panel" class="multiplayer-panel" hidden>
-              <dl>
-                <dt>Room code</dt>
-                <dd id="room-code">—</dd>
-                <dt>Opponent</dt>
-                <dd class="opponent-row">
-                  <span id="opponent-dot" class="status-dot"></span>
-                  <span id="opponent-status">—</span>
-                </dd>
-              </dl>
-              <button id="toggle-practice" class="secondary" type="button">Play vs bot while you wait</button>
-            </div>
-            <dl id="practice-panel">
-              <dt>Opponent</dt>
-              <dd id="engine">Local engine</dd>
-              <dt><label for="difficulty">Difficulty</label></dt>
-              <dd>
-                <select id="difficulty" aria-label="Opponent difficulty">
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </dd>
-            </dl>
-            <p id="message" class="message" aria-live="polite"></p>
-            <button id="return" type="button">Return to work</button>
-          </aside>
+      <section class="game" aria-label="Chess game">
+        <div class="board-column">
+          <div class="player-row">
+            <span class="player-avatar" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="7" width="14" height="12" rx="3"/><path d="M12 3v4M9 12v2m6-2v2M9 17h6"/></svg></span>
+            <span id="opponent-name" class="player-name">Practice bot</span>
+            <span id="opponent-color" class="player-detail">BLACK</span>
+          </div>
+          <div id="board" class="board-shell" aria-label="Chess board"></div>
+          <div class="player-row">
+            <span id="player-piece" class="player-avatar player-avatar--you" aria-hidden="true">♙</span>
+            <span class="player-name">You<span id="side-note" class="side-note">You play White</span></span>
+            <span id="move-number" class="player-detail">MOVE 01</span>
+          </div>
         </div>
+
+        <aside class="side-column" aria-label="Game controls">
+          <div class="session-heading"><span class="eyebrow">AT THE BOARD</span><span id="mode-label" class="mode-label">Practice</span></div>
+          <div class="turn-indicator"><span id="turn-dot"></span><h2 id="status" aria-live="polite">Loading…</h2></div>
+          <p id="turn-hint" class="turn-hint">A little space between prompts.</p>
+          <p id="last-turn-notice" class="last-turn-notice" aria-live="polite" hidden>Your agent finished. Make one last move, then get back to it.</p>
+
+          <div id="multiplayer-panel" class="multiplayer-panel" hidden>
+            <dl>
+              <dt>Room code</dt><dd id="room-code">—</dd>
+              <dt>Opponent</dt><dd class="opponent-row"><span id="opponent-dot" class="status-dot"></span><span id="opponent-status">—</span></dd>
+            </dl>
+            <button id="toggle-practice" class="secondary" type="button">Play vs bot while you wait</button>
+          </div>
+          <dl id="practice-panel" class="settings">
+            <dt>Opponent</dt><dd id="engine">Local engine</dd>
+            <dt><label for="difficulty">Difficulty</label></dt>
+            <dd><select id="difficulty" aria-label="Opponent difficulty"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></dd>
+          </dl>
+          <div class="last-move-row"><span>Last move</span><span id="last-move">—</span></div>
+          <p id="message" class="message" role="status" aria-live="polite"></p>
+          <div class="actions">
+            <button id="new-game" class="secondary" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 8a6 6 0 1 1 0 4M4 3v5h5"/></svg>New game</button>
+            <button id="return" type="button">Return to work <span aria-hidden="true">↗</span></button>
+          </div>
+        </aside>
       </section>
+      <footer><span>A good move while you wait.</span><span class="footer-detail">SIDEQUEST <span aria-hidden="true">/</span> CHESS</span></footer>
     </main>
 
-    <div id="finished" class="finished" hidden>
+    <div id="finished" class="finished" role="dialog" aria-modal="true" aria-labelledby="finished-title" hidden>
       <div>
-        <p class="eyebrow">TURN COMPLETE</p>
-        <h2>Your agent is ready.</h2>
-        <p>This game is saved and will resume with your next prompt.</p>
-        <button id="close-window" type="button">Return to terminal</button>
+        <span class="finish-mark" aria-hidden="true">↗</span>
+        <p class="eyebrow">BACK TO THE GOOD STUFF</p>
+        <h2 id="finished-title">Your agent is ready.</h2>
+        <p>This game is saved. Pick up where you left off with your next prompt.</p>
+        <button id="close-window" type="button">Return to terminal <span aria-hidden="true">↗</span></button>
       </div>
     </div>
     <script src="/cm-chessboard.js"></script>
