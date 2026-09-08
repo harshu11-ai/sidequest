@@ -133,8 +133,9 @@ class ChessCompanion:
             daemon=True,
         )
         self._thread.start()
-        if self.multiplayer is not None:
-            self.multiplayer.start_polling()
+        # Polling (and so the presence heartbeat your opponent's "connected"
+        # dot relies on) is tied to show()/hide() below, not to the
+        # companion's own lifetime -- see there for why.
 
     @property
     def base_url(self) -> str:
@@ -155,11 +156,20 @@ class ChessCompanion:
             if self._active:
                 return
             self._active = True
+        # Presence is "are you actually looking at the board right now", not
+        # "is your sidequest process still running" -- an opponent's
+        # connection dot should go dark the moment they dismiss the window
+        # (or their agent finishes and it closes itself), not linger on
+        # until the whole process eventually exits.
+        if self.multiplayer is not None:
+            self.multiplayer.start_polling()
         try:
             self._browser_open(self.play_url)
         except OSError:
             with self._active_lock:
                 self._active = False
+            if self.multiplayer is not None:
+                self.multiplayer.stop_polling()
 
     def hide(self) -> None:
         with self._active_lock:
@@ -167,6 +177,8 @@ class ChessCompanion:
             self._active = False
         if was_active:
             self._browser_close()
+            if self.multiplayer is not None:
+                self.multiplayer.stop_polling()
 
     def is_active(self) -> bool:
         with self._active_lock:
