@@ -14,6 +14,8 @@ from threading import Lock
 
 # How many shuffled picks the queue keeps ready (and exposes as "up next").
 _UPCOMING_LENGTH = 5
+# How many prior videos "go back" can step through.
+_HISTORY_LIMIT = 50
 
 
 def default_video_state_path() -> Path:
@@ -38,6 +40,7 @@ class VideoSnapshot:
     position_s: float
     watched: tuple[str, ...]
     upcoming: tuple[str, ...]
+    can_go_back: bool
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -45,6 +48,7 @@ class VideoSnapshot:
             "position_s": self.position_s,
             "watched": list(self.watched),
             "upcoming": list(self.upcoming),
+            "can_go_back": self.can_go_back,
         }
 
 
@@ -71,6 +75,7 @@ class VideoQueue:
         self._position_s = 0.0
         self._watched: set[str] = set()
         self._upcoming: list[str] = []
+        self._history: list[str] = []
         self._load()
         if self._current_id not in self._by_id:
             self._current_id = self._draw_next(exclude=None)
@@ -92,10 +97,28 @@ class VideoQueue:
     def skip(self) -> VideoSnapshot:
         with self._lock:
             self._watched.add(self._current_id)
+            self._push_history(self._current_id)
             self._current_id = self._draw_next(exclude=self._current_id)
             self._position_s = 0.0
             self._save()
             return self._snapshot_unlocked()
+
+    def previous(self) -> VideoSnapshot:
+        with self._lock:
+            if self._history:
+                # Going back is an undo, not a "finish" -- the video we're
+                # leaving isn't marked watched, and it isn't re-queued either:
+                # it's still in the catalog, so the shuffle surfaces it again
+                # on its own in due course.
+                self._current_id = self._history.pop()
+                self._position_s = 0.0
+                self._save()
+            return self._snapshot_unlocked()
+
+    def _push_history(self, video_id: str) -> None:
+        self._history.append(video_id)
+        if len(self._history) > _HISTORY_LIMIT:
+            del self._history[: len(self._history) - _HISTORY_LIMIT]
 
     def _draw_next(self, *, exclude: str | None) -> str:
         if not self._upcoming:
@@ -128,6 +151,7 @@ class VideoQueue:
             position_s=self._position_s,
             watched=tuple(sorted(self._watched)),
             upcoming=tuple(self._upcoming[:_UPCOMING_LENGTH]),
+            can_go_back=bool(self._history),
         )
 
     def _load(self) -> None:
@@ -145,11 +169,18 @@ class VideoQueue:
                 if isinstance(upcoming, list)
                 else []
             )
+            history = data.get("history", [])
+            self._history = (
+                [str(item) for item in history if str(item) in self._by_id]
+                if isinstance(history, list)
+                else []
+            )
         except (OSError, TypeError, ValueError, json.JSONDecodeError):
             self._current_id = ""
             self._position_s = 0.0
             self._watched = set()
             self._upcoming = []
+            self._history = []
 
     def _save(self) -> None:
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -159,6 +190,7 @@ class VideoQueue:
                 "position_s": self._position_s,
                 "watched": sorted(self._watched),
                 "upcoming": self._upcoming,
+                "history": self._history,
             },
             separators=(",", ":"),
         )

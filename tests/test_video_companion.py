@@ -101,6 +101,17 @@ class VideoCompanionTests(unittest.TestCase):
         payload = _post(self._url("/api/skip"), {})
         self.assertEqual(payload["video"]["id"], "b")
         self.assertEqual(payload["watched"], ["a"])
+        self.assertTrue(payload["can_go_back"])
+
+    def test_previous_endpoint_returns_to_the_prior_video(self) -> None:
+        _post(self._url("/api/skip"), {})
+        payload = _post(self._url("/api/previous"), {})
+        self.assertEqual(payload["video"]["id"], "a")
+
+    def test_previous_endpoint_is_a_noop_with_no_history(self) -> None:
+        payload = _post(self._url("/api/previous"), {})
+        self.assertEqual(payload["video"]["id"], "a")
+        self.assertFalse(payload["can_go_back"])
 
     def test_lifecycle_endpoint_changes_visibility(self) -> None:
         start = urllib.request.Request(

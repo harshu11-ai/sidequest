@@ -32,9 +32,10 @@ h1 { font-size: 14px; font-weight: 450; letter-spacing: 0; color: #b6bdb2; }
 .player-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 10px; }
 .video-title { font-size: 14px; font-weight: 550; color: #eceee8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-detail { color: var(--muted); font: 11px var(--mono); letter-spacing: .04em; flex-shrink: 0; }
-.controls { margin-top: 10px; }
+.controls { margin-top: 10px; display: flex; gap: 8px; }
 .controls button { display: inline-flex; align-items: center; gap: 8px; }
 .controls button svg { width: 14px; height: 14px; }
+.controls button:disabled { opacity: .45; cursor: not-allowed; }
 
 .side-column { width: 208px; flex-shrink: 0; padding-top: 8px; display: flex; flex-direction: column; gap: 10px; }
 .session-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }

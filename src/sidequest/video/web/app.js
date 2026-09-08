@@ -8,6 +8,7 @@ const finished = document.querySelector("#finished");
 const lastTurnNotice = document.querySelector("#last-turn-notice");
 const agentStatusLabel = document.querySelector("#agent-status");
 const agentDot = document.querySelector("#agent-dot");
+const prevButton = document.querySelector("#prev");
 
 let player = null;
 let ytApiReady = false;
@@ -50,6 +51,7 @@ function renderQueue() {
 function renderVideoInfo() {
   titleLabel.textContent = state.video.title;
   channelLabel.textContent = state.video.channel;
+  prevButton.disabled = !state.can_go_back;
 }
 
 function renderAgentStatus(active) {
@@ -81,8 +83,17 @@ function onPlayerStateChange(event) {
 }
 
 async function nextVideo() {
+  await advance("/api/skip");
+}
+
+async function previousVideo() {
+  if (!state.can_go_back) return;
+  await advance("/api/previous");
+}
+
+async function advance(path) {
   try {
-    state = await request("/api/skip", {});
+    state = await request(path, {});
     renderVideoInfo();
     renderQueue();
     if (player) player.loadVideoById(state.video.youtube_id, 0);
@@ -132,6 +143,7 @@ window.onYouTubeIframeAPIReady = function onYouTubeIframeAPIReady() {
 };
 
 document.querySelector("#next").addEventListener("click", nextVideo);
+prevButton.addEventListener("click", previousVideo);
 document.querySelector("#return").addEventListener("click", closeVideoWindow);
 document.querySelector("#close-window").addEventListener("click", () => window.close());
 

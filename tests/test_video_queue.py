@@ -107,6 +107,48 @@ class VideoQueueTests(unittest.TestCase):
         self.assertEqual(snapshot.video["id"], "a")
         self.assertEqual(snapshot.upcoming, ())
 
+    def test_previous_is_a_noop_with_no_history(self) -> None:
+        queue = self._queue()
+        before = queue.snapshot()
+        self.assertFalse(before.can_go_back)
+
+        after = queue.previous()
+
+        self.assertEqual(after.video["id"], before.video["id"])
+        self.assertFalse(after.can_go_back)
+
+    def test_skip_then_previous_returns_to_the_prior_video(self) -> None:
+        queue = self._queue()
+        first_id = queue.snapshot().video["id"]
+        queue.record_position(30)
+        skipped = queue.skip()
+        self.assertTrue(skipped.can_go_back)
+
+        back = queue.previous()
+
+        self.assertEqual(back.video["id"], first_id)
+        self.assertEqual(back.position_s, 0.0)
+
+    def test_previous_does_not_mark_the_left_video_watched(self) -> None:
+        queue = self._queue()
+        queue.skip()
+        second_id = queue.snapshot().video["id"]
+
+        back = queue.previous()
+
+        self.assertNotIn(second_id, back.watched)
+
+    def test_previous_persists_across_reload(self) -> None:
+        first = self._queue()
+        first.skip()
+        id_before_second_skip = first.snapshot().video["id"]
+        first.skip()
+
+        restored = VideoQueue(self.state_path, catalog=_CATALOG)
+        back = restored.previous()
+
+        self.assertEqual(back.video["id"], id_before_second_skip)
+
 
 if __name__ == "__main__":
     unittest.main()

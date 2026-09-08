@@ -20,16 +20,6 @@
     "category": "math"
   },
   {
-    "id": "3blue1brown-large-language-models-explained-briefly",
-    "title": "Large Language Models explained briefly",
-    "channel": "3Blue1Brown",
-    "youtube_id": "LPZh9BOjkQs",
-    "published": "2024-11-20",
-    "views_at_catalog_time": 7400583,
-    "duration_s": 478,
-    "category": "math"
-  },
-  {
     "id": "3blue1brown-how-are-holograms-possible",
     "title": "How are holograms possible?",
     "channel": "3Blue1Brown",
@@ -48,16 +38,6 @@
     "views_at_catalog_time": 6696306,
     "duration_s": 653,
     "category": "math"
-  },
-  {
-    "id": "veritasium-can-you-swim-in-shade-balls",
-    "title": "Can you swim in shade balls?",
-    "channel": "Veritasium",
-    "youtube_id": "zQ2ZJuUJeyo",
-    "published": "2025-08-19",
-    "views_at_catalog_time": 64553599,
-    "duration_s": 148,
-    "category": "science"
   },
   {
     "id": "veritasium-why-it-was-almost-impossible-to-make-the",
@@ -100,36 +80,6 @@
     "category": "science"
   },
   {
-    "id": "vsauce-i-built-an-emordnilap-machine",
-    "title": "I Built An Emordnilap Machine",
-    "channel": "Vsauce",
-    "youtube_id": "65_8t1OEZSc",
-    "published": "2024-12-07",
-    "views_at_catalog_time": 96906367,
-    "duration_s": 144,
-    "category": "science"
-  },
-  {
-    "id": "vsauce-the-man-who-saved-the-world",
-    "title": "The Man Who Saved The World",
-    "channel": "Vsauce",
-    "youtube_id": "JyJ6K_n5bIM",
-    "published": "2024-12-02",
-    "views_at_catalog_time": 25907463,
-    "duration_s": 128,
-    "category": "science"
-  },
-  {
-    "id": "vsauce-euler-s-disk",
-    "title": "Euler's Disk",
-    "channel": "Vsauce",
-    "youtube_id": "Q8M3Il0Zv68",
-    "published": "2025-01-12",
-    "views_at_catalog_time": 21906585,
-    "duration_s": 96,
-    "category": "science"
-  },
-  {
     "id": "vsauce-did-people-used-to-look-older",
     "title": "Did People Used To Look Older?",
     "channel": "Vsauce",
@@ -138,16 +88,6 @@
     "views_at_catalog_time": 20725488,
     "duration_s": 1374,
     "category": "science"
-  },
-  {
-    "id": "numberphile-a-sudoku-secret-to-blow-your-mind-number",
-    "title": "A Sudoku Secret to Blow Your Mind - Numberphile",
-    "channel": "Numberphile",
-    "youtube_id": "pezlnN4X52g",
-    "published": "2024-01-04",
-    "views_at_catalog_time": 3825914,
-    "duration_s": 368,
-    "category": "math"
   },
   {
     "id": "numberphile-the-clever-way-to-count-tanks-numberphil",
@@ -487,6 +427,66 @@
     "published": null,
     "views_at_catalog_time": null,
     "duration_s": null,
+    "category": "math"
+  },
+  {
+    "id": "3blue1brown-why-colliding-blocks-compute-pi",
+    "title": "Why colliding blocks compute pi",
+    "channel": "3Blue1Brown",
+    "youtube_id": "6dTyOl1fmDo",
+    "published": "2025-03-13",
+    "views_at_catalog_time": 6372040,
+    "duration_s": 1567,
+    "category": "math"
+  },
+  {
+    "id": "veritasium-how-one-company-secretly-poisoned-the-pl",
+    "title": "How One Company Secretly Poisoned The Planet",
+    "channel": "Veritasium",
+    "youtube_id": "SC2eSujzrUY",
+    "published": "2025-05-14",
+    "views_at_catalog_time": 36287127,
+    "duration_s": 3248,
+    "category": "science"
+  },
+  {
+    "id": "vsauce-do-chairs-exist",
+    "title": "Do Chairs Exist?",
+    "channel": "Vsauce",
+    "youtube_id": "fXW-QjBsruE",
+    "published": "2021-09-14",
+    "views_at_catalog_time": 15783452,
+    "duration_s": 2274,
+    "category": "science"
+  },
+  {
+    "id": "vsauce-all-the-ghosts-you-will-be",
+    "title": "All The Ghosts You Will Be",
+    "channel": "Vsauce",
+    "youtube_id": "xHd4zsIbXJ0",
+    "published": "2025-07-16",
+    "views_at_catalog_time": 7281613,
+    "duration_s": 1320,
+    "category": "science"
+  },
+  {
+    "id": "vsauce-selfie-waves",
+    "title": "Selfie Waves",
+    "channel": "Vsauce",
+    "youtube_id": "mMaBVfIedFw",
+    "published": "2022-11-17",
+    "views_at_catalog_time": 6357525,
+    "duration_s": 1512,
+    "category": "science"
+  },
+  {
+    "id": "numberphile-bertrand-s-paradox-with-3blue1brown-numb",
+    "title": "Bertrand's Paradox (with 3blue1brown) - Numberphile",
+    "channel": "Numberphile",
+    "youtube_id": "mZBwsm6B280",
+    "published": "2021-12-20",
+    "views_at_catalog_time": 1424834,
+    "duration_s": 643,
     "category": "math"
   }
 ]

@@ -36,6 +36,10 @@ _CSP = (
 # Fields shipped for each "up next" entry -- deliberately not the whole
 # catalog record (no need to ship views/category over the wire).
 _UPCOMING_FIELDS = ("id", "title", "channel", "duration_s")
+# Wider than chess's default window -- there's a 16:9 video plus a queue
+# sidebar to fit, not a square board.
+_WINDOW_WIDTH = 1180
+_WINDOW_HEIGHT = 760
 
 
 class VideoCompanion:
@@ -50,7 +54,11 @@ class VideoCompanion:
     ) -> None:
         self.queue = queue or VideoQueue()
         self._catalog_by_id = {str(entry["id"]): entry for entry in self.queue.catalog}
-        self._window = CompanionWindow() if browser_open is None else None
+        self._window = (
+            CompanionWindow(width=_WINDOW_WIDTH, height=_WINDOW_HEIGHT)
+            if browser_open is None
+            else None
+        )
         self._browser_open = browser_open or self._window.open
         default_close = self._window.hide if self._window else (lambda: None)
         self._browser_close = browser_close or default_close
@@ -154,7 +162,7 @@ class VideoCompanion:
             self.hide()
             self._json(handler, HTTPStatus.OK, {})
             return
-        if parsed.path not in {"/api/position", "/api/skip"}:
+        if parsed.path not in {"/api/position", "/api/skip", "/api/previous"}:
             self._json(handler, HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         if handler.headers.get_content_type() != "application/json":
@@ -171,8 +179,10 @@ class VideoCompanion:
             payload = json.loads(handler.rfile.read(length) or b"{}")
             if parsed.path == "/api/position":
                 snapshot_dict = self.queue.record_position(payload.get("position_s", 0)).as_dict()
-            else:
+            elif parsed.path == "/api/skip":
                 snapshot_dict = self.queue.skip().as_dict()
+            else:
+                snapshot_dict = self.queue.previous().as_dict()
         except (json.JSONDecodeError, AttributeError, ValueError, TypeError) as error:
             self._json(handler, HTTPStatus.BAD_REQUEST, {"error": str(error)})
             return

@@ -20,9 +20,11 @@ _MACOS_CHROMIUM_PATHS = (
 class CompanionWindow:
     """Launch a disposable app-style browser window that can be closed reliably."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, width: int = 768, height: int = 650) -> None:
         self._process: subprocess.Popen[bytes] | None = None
         self._profile = tempfile.TemporaryDirectory(prefix="sidequest-browser-")
+        self._width = width
+        self._height = height
 
     def open(self, url: str) -> None:
         if self._process is not None and self._process.poll() is None:
@@ -37,7 +39,7 @@ class CompanionWindow:
                     executable,
                     f"--app={url}",
                     f"--user-data-dir={self._profile.name}",
-                    "--window-size=768,650",
+                    f"--window-size={self._width},{self._height}",
                     "--no-first-run",
                     "--no-default-browser-check",
                 ],
