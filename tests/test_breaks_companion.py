@@ -333,13 +333,13 @@ class BreaksCompanionRealWindowTests(unittest.TestCase):
         self._toggle("chess", True)
         with patch("sidequest.breaks.companion.CompanionWindow") as window_type:
             self.companion.show()
-        window_type.assert_called_once_with(width=768, height=650)
+        window_type.assert_called_once_with(width=768, height=700)
 
     def test_video_mode_opens_the_video_sized_window(self) -> None:
         self._toggle("video", True)
         with patch("sidequest.breaks.companion.CompanionWindow") as window_type:
             self.companion.show()
-        window_type.assert_called_once_with(width=1000, height=650)
+        window_type.assert_called_once_with(width=1000, height=700)
 
     def test_chess_window_closes_and_reopens_fresh_every_turn(self) -> None:
         self._toggle("chess", True)
@@ -347,7 +347,7 @@ class BreaksCompanionRealWindowTests(unittest.TestCase):
             self.companion.show()
             self.companion.hide()
             self.companion.show()
-        window_type.assert_called_once_with(width=768, height=650)  # one pool entry, reused
+        window_type.assert_called_once_with(width=768, height=700)  # one pool entry, reused
         window = window_type.return_value
         self.assertEqual(window.open.call_count, 2)
         window.hide.assert_called_once_with()
