@@ -30,13 +30,19 @@ h1 { font-size: 14px; font-weight: 450; letter-spacing: 0; color: #b6bdb2; }
 .status-dot--online { background: var(--accent); }
 .status-dot--offline { background: #777d74; }
 
-button, select, input[type="text"] { min-height: 33px; border: 1px solid transparent; border-radius: 5px; font: 500 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+button, select, input[type="text"] { min-height: 33px; border: 1px solid transparent; border-radius: 5px; font: 500 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; appearance: none; -webkit-appearance: none; }
 button { padding: 7px 12px; cursor: pointer; color: #20271b; background: var(--accent); transition: background .15s, border-color .15s; }
 button:hover { background: #d0dfbc; }
 button:active { transform: translateY(1px); }
 button.secondary { color: #d8ddd2; background: transparent; border-color: #41463b; }
 button.secondary:hover { background: #282d25; border-color: #6a745e; }
-button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* outline-offset used to push this ring 3px clear of the button -- on the
+   dark page background that reads as a stray green halo floating next to
+   the button rather than a highlight on it (worst on solid accent-filled
+   buttons like "Host a game", where it has nothing to do with the button's
+   own fill). Flush the ring against the edge instead. */
+select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 button:disabled, select:disabled, input:disabled { opacity: .55; cursor: not-allowed; }
 select, input[type="text"] { width: 100%; padding: 6px 8px; background: var(--field); border-color: var(--field-line); color: #e0e6d8; }
 input[type="text"]::placeholder { color: #6a715f; }
@@ -70,7 +76,7 @@ footer { display: flex; justify-content: space-between; gap: 12px; border-top: 1
 .switch input:checked + .switch-track { background: var(--accent); border-color: var(--accent); }
 .switch input:checked + .switch-track .switch-thumb { transform: translateX(15px); background: #20271b; }
 
-.settings-block { margin: -2px 0 2px 40px; padding: 14px; border: 1px solid var(--field-line); border-radius: 6px; background: #1c2018; display: flex; flex-direction: column; gap: 14px; }
+.settings-block { margin: -2px 0 14px 40px; padding: 14px 14px 18px; border: 1px solid var(--field-line); border-radius: 6px; background: #1c2018; display: flex; flex-direction: column; gap: 14px; }
 .settings-block > button, #chess-multiplayer-fields > button { width: 100%; }
 #chess-solo-fields, #chess-multiplayer-fields { display: flex; flex-direction: column; gap: 14px; }
 #multiplayer-host-button, #multiplayer-join-button { margin-top: 2px; }
