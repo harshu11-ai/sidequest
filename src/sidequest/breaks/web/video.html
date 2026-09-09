@@ -13,7 +13,7 @@
       <header class="app-header">
         <div class="brand">
           <svg class="brand-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 5 6 7-6 7M13 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
-          <span>sidequest</span><span class="brand-divider">/</span><h1>Videos</h1>
+          <h1>Sidequest</h1>
         </div>
         <div class="agent-status"><span class="status-dot status-dot--online" id="agent-dot"></span><span id="agent-status">Connecting</span></div>
       </header>
@@ -29,7 +29,6 @@
           <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2.5" y="4" width="15" height="12" rx="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8.5 7.5 13 10l-4.5 2.5v-5Z" fill="currentColor"/></svg>
           Video
         </label>
-        <span class="mini-strip-hint">Reopens next turn with whatever's toggled on</span>
       </div>
 
       <section class="watch" aria-label="Video player">
@@ -48,9 +47,8 @@
         </div>
 
         <aside class="side-column" aria-label="Up next">
-          <div class="status-group">
-            <div class="session-heading"><span class="eyebrow">SIDEQUEST BREAK</span><span class="mode-label">Educational</span></div>
-            <p id="turn-hint" class="turn-hint">A little space between prompts.</p>
+          <div>
+            <h2 class="section-title">Up next</h2>
           </div>
           <p id="last-turn-notice" class="last-turn-notice" aria-live="polite" hidden>Your agent finished. Your spot is saved.</p>
           <ol id="queue-list" class="queue-list" aria-label="Video queue"></ol>
@@ -59,13 +57,10 @@
           </div>
         </aside>
       </section>
-      <footer><span>Learn something while you wait.</span><span class="footer-detail">SIDEQUEST <span aria-hidden="true">/</span> VIDEOS</span></footer>
     </main>
 
     <div id="finished" class="finished" role="dialog" aria-modal="true" aria-labelledby="finished-title" hidden>
       <div>
-        <span class="finish-mark" aria-hidden="true">↗</span>
-        <p class="eyebrow">BACK TO THE GOOD STUFF</p>
         <h2 id="finished-title">Your agent is ready.</h2>
         <p>Your spot in the queue is saved. Pick up where you left off next time.</p>
         <button id="close-window" type="button">Return to terminal <span aria-hidden="true">↗</span></button>

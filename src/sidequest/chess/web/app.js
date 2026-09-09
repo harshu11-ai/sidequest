@@ -8,7 +8,6 @@ const difficulty = document.querySelector("#difficulty");
 const message = document.querySelector("#message");
 const finished = document.querySelector("#finished");
 const lastTurnNotice = document.querySelector("#last-turn-notice");
-const sideNote = document.querySelector("#side-note");
 const newGameButton = document.querySelector("#new-game");
 const practicePanel = document.querySelector("#practice-panel");
 const multiplayerPanel = document.querySelector("#multiplayer-panel");
@@ -116,10 +115,6 @@ function renderMetadata(nextState) {
   document.querySelector("#last-move").textContent = state.last_move
     ? `${state.last_move.slice(0, 2)} → ${state.last_move.slice(2, 4)}${state.last_move[4] ? ` =${state.last_move[4].toUpperCase()}` : ""}`
     : "—";
-  document.querySelector("#turn-hint").textContent =
-    state.status === "Checkmate" || state.status === "Stalemate" ? "Game complete. Stay for another?"
-      : state.turn === yourColor() ? "Take your time. Find your next move."
-        : "The board is in your opponent’s hands.";
   multiplayerPanel.hidden = !multiplayer;
   practicePanel.hidden = inMultiplayerMode;
   newGameButton.hidden = inMultiplayerMode;
@@ -135,11 +130,6 @@ function renderMetadata(nextState) {
     opponentDot.classList.toggle("status-dot--offline", !multiplayer.opponent_connected);
     togglePracticeButton.textContent =
       state.mode === "multiplayer" ? "Play vs bot while you wait" : "Back to multiplayer game";
-    sideNote.textContent = inMultiplayerMode
-      ? `You play ${multiplayer.you === "white" ? "White" : "Black"}`
-      : "You play White (practice)";
-  } else {
-    sideNote.textContent = "You play White";
   }
 
   if (!inMultiplayerMode) {

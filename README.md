@@ -89,7 +89,7 @@ A small app-style panel opens as soon as `sidequest --breaks` launches --
 before you've even typed a prompt -- with Chess and Video as independent
 toggles, both off by default. With nothing toggled on, the panel just sits
 there quietly for as long as you leave it alone; there's no close button to
-look for. Toggle Chess (or Video, or both) on and an "All set" button
+look for. Toggle Chess (or Video, or both) on and a "Done" button
 appears -- click it and the panel closes so you can go type your prompt.
 (If you toggle something on and just go type a prompt anyway without
 clicking it, that works too -- the panel closes on its own once a real turn

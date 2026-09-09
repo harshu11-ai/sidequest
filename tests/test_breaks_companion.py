@@ -109,7 +109,7 @@ class BreaksCompanionTests(unittest.TestCase):
             "sidequest.breaks.companion.random.choice", return_value="video"
         ) as choice:
             self.companion.show()
-        choice.assert_called_once_with(["chess", "video"])
+        choice.assert_called_once_with(("chess", "video"))
         self.assertEqual(self._state()["mode"], "video")
 
     # -- settings ----------------------------------------------------------

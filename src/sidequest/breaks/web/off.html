@@ -12,15 +12,15 @@
       <header class="app-header">
         <div class="brand">
           <svg class="brand-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 5 6 7-6 7M13 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
-          <span>sidequest</span><span class="brand-divider">/</span><h1>Breaks</h1>
+          <h1>Sidequest</h1>
         </div>
         <div class="agent-status"><span class="status-dot status-dot--online" id="agent-dot"></span><span id="agent-status">Connected</span></div>
       </header>
 
       <div class="toggle-panel-body">
         <div class="session-heading">
-          <span class="eyebrow">Next prompt</span>
-          <span id="breaks-mode-label" class="mode-label">OFF</span>
+          <h2>Breaks</h2>
+          <span id="breaks-mode-label" class="mode-label">Off</span>
         </div>
 
         <div class="toggle-list">
@@ -30,7 +30,7 @@
             </span>
             <span class="toggle-text">
               <span class="toggle-label">Chess</span>
-              <span class="toggle-sub">Solo practice, while you wait</span>
+              <span class="toggle-sub">Practice or multiplayer</span>
             </span>
             <button class="expand-btn" type="button" id="chess-expand" aria-expanded="false" aria-label="Chess settings">
               <svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 4.5 6 8l3-3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -81,7 +81,7 @@
             </span>
             <span class="toggle-text">
               <span class="toggle-label">Video</span>
-              <span class="toggle-sub">A queue of science &amp; math</span>
+              <span class="toggle-sub">Science and math</span>
             </span>
             <button class="expand-btn" type="button" id="video-expand" aria-expanded="false" aria-label="Video settings">
               <svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 4.5 6 8l3-3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -99,14 +99,9 @@
           </div>
         </div>
 
-        <button id="breaks-confirm-button" type="button" hidden>All set <span aria-hidden="true">↗</span></button>
+        <button id="breaks-confirm-button" type="button" hidden>Done</button>
         <p id="breaks-message" class="settings-note" role="status" aria-live="polite"></p>
       </div>
-
-      <footer>
-        <span id="footer-note">Nothing's on — your agent runs straight through.</span>
-        <span class="footer-detail">SIDEQUEST <span aria-hidden="true">/</span> BREAKS</span>
-      </footer>
     </main>
     <script src="/breaks/panel.js"></script>
   </body>
