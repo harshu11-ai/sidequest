@@ -1,6 +1,8 @@
 import unittest
+from unittest.mock import patch
 
 from app import main
+from app.observability import ServiceMetrics
 from app.store import InMemoryRoomStore
 from fastapi.testclient import TestClient
 
@@ -8,6 +10,7 @@ from fastapi.testclient import TestClient
 class RoomsApiTests(unittest.TestCase):
     def setUp(self) -> None:
         main.store = InMemoryRoomStore()
+        main.metrics = ServiceMetrics()
         self.client = TestClient(main.app)
 
     def create_and_join(self):
@@ -150,6 +153,44 @@ class RoomsApiTests(unittest.TestCase):
         response = self.client.get("/healthz")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"ok": True})
+        self.assertEqual(len(response.headers["X-Request-ID"]), 16)
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+
+    def test_metrics_report_requests_and_room_counts(self) -> None:
+        self.client.post("/rooms")
+
+        response = self.client.get("/metrics")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+        body = response.json()
+        self.assertGreaterEqual(body["uptime_s"], 0)
+        self.assertEqual(body["requests"]["total"], 1)
+        self.assertEqual(body["requests"]["in_flight"], 1)
+        self.assertEqual(body["requests"]["responses"]["2xx"], 1)
+        self.assertEqual(body["rooms"], {"total": 1, "waiting": 1, "active": 0, "finished": 0})
+        self.assertIsNone(body["last_error"])
+
+    def test_unhandled_errors_are_reported_without_leaking_details(self) -> None:
+        with (
+            patch.object(main.store, "stats", side_effect=RuntimeError("private detail")),
+            self.assertLogs("sidequest.relay", level="ERROR") as captured,
+        ):
+            response = self.client.get("/metrics?token=do-not-log")
+
+        self.assertEqual(response.status_code, 500)
+        body = response.json()
+        self.assertEqual(body["error"], "internal server error")
+        self.assertEqual(body["request_id"], response.headers["X-Request-ID"])
+        log_output = "\n".join(captured.output)
+        self.assertIn('"event":"unhandled_request_error"', log_output)
+        self.assertIn(f'"request_id":"{body["request_id"]}"', log_output)
+        self.assertIn('"path":"/metrics"', log_output)
+        self.assertNotIn("do-not-log", log_output)
+
+        metrics_response = self.client.get("/metrics").json()
+        self.assertEqual(metrics_response["requests"]["responses"]["5xx"], 1)
+        self.assertEqual(metrics_response["last_error"]["request_id"], body["request_id"])
 
 
 if __name__ == "__main__":

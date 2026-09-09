@@ -72,3 +72,15 @@ class InMemoryRoomStore:
             expired = [code for code, room in self._rooms.items() if room.updated_at < cutoff]
             for code in expired:
                 del self._rooms[code]
+
+    def stats(self) -> dict[str, int]:
+        with self._lock:
+            counts = {"total": len(self._rooms), "waiting": 0, "active": 0, "finished": 0}
+            for room in self._rooms.values():
+                key = {
+                    "waiting_for_opponent": "waiting",
+                    "in_progress": "active",
+                    "finished": "finished",
+                }[room.status]
+                counts[key] += 1
+            return counts
