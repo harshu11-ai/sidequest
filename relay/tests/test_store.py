@@ -61,6 +61,19 @@ class InMemoryRoomStoreTests(unittest.TestCase):
         self.assertIsNotNone(store.get("FRESH1"))
         self.assertIsNone(store.get("STALE1"))
 
+    def test_stats_group_rooms_by_lifecycle(self) -> None:
+        store = InMemoryRoomStore()
+        waiting = make_room("WAIT01", time.time())
+        active = replace(waiting, code="PLAY01", black_token="black-token")
+        finished = replace(active, code="DONE01", result="white")
+        for room in (waiting, active, finished):
+            store.create(room)
+
+        self.assertEqual(
+            store.stats(),
+            {"total": 3, "waiting": 1, "active": 1, "finished": 1},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

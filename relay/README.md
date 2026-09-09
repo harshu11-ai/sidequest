@@ -22,10 +22,21 @@ balancer would each hold a different dict of rooms and diverge.
 | `/rooms/{code}/state?token=...` | GET | Poll the current board snapshot (also a presence heartbeat). |
 | `/rooms/{code}/move` | POST | `{token, move, expected_move_count}` — validated server-side. |
 | `/healthz` | GET | Liveness check. |
+| `/metrics` | GET | Process uptime, request health, latency, and room counts. |
 
 `expected_move_count` is optimistic concurrency: it must equal the room's
 current move count, or the move is rejected with 409 so a stale client
 doesn't silently clobber a move it didn't see yet.
+
+Every response includes an `X-Request-ID`. Unhandled server errors return that
+same ID in a generic response and emit a structured `unhandled_request_error`
+log entry containing the ID, method, and route. Query strings and request bodies
+are deliberately excluded so seat tokens are never logged.
+
+`/metrics` is an intentionally small JSON endpoint suitable for uptime checks or
+simple polling. Metrics are process-local and reset whenever the relay restarts;
+the metrics request currently in progress appears under `in_flight` and is added
+to completed request totals after its response is sent.
 
 ## Running locally
 

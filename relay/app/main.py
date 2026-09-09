@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
+import secrets
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from . import rooms
+from .observability import ServiceMetrics
 from .ratelimit import RateLimiter
 from .store import InMemoryRoomStore, Room
 
@@ -17,8 +22,10 @@ _SWEEP_INTERVAL_SECONDS = 15 * 60
 _ROOM_CREATE_LIMIT = 20
 _ROOM_CREATE_WINDOW_SECONDS = 10 * 60
 
+logger = logging.getLogger("sidequest.relay")
 store = InMemoryRoomStore()
 create_limiter = RateLimiter(_ROOM_CREATE_LIMIT, _ROOM_CREATE_WINDOW_SECONDS)
+metrics = ServiceMetrics()
 
 
 async def _sweep_loop() -> None:
@@ -37,6 +44,44 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="sidequest multiplayer relay", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def observe_requests(request: Request, call_next):
+    request_id = secrets.token_hex(8)
+    started_at = metrics.begin_request()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+    except Exception as error:
+        route = request.scope.get("route")
+        route_path = getattr(route, "path", request.url.path)
+        logger.exception(
+            json.dumps(
+                {
+                    "event": "unhandled_request_error",
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": route_path,
+                },
+                separators=(",", ":"),
+            ),
+            exc_info=error,
+        )
+        response = JSONResponse(
+            status_code=500,
+            content={"error": "internal server error", "request_id": request_id},
+            headers={"Cache-Control": "no-store"},
+        )
+    finally:
+        metrics.finish_request(
+            started_at,
+            status_code,
+            error_id=request_id if status_code >= 500 else None,
+        )
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 class MoveRequest(BaseModel):
@@ -106,5 +151,12 @@ def submit_move(code: str, payload: MoveRequest):
 
 
 @app.get("/healthz")
-def healthz():
+def healthz(response: Response):
+    response.headers["Cache-Control"] = "no-store"
     return {"ok": True}
+
+
+@app.get("/metrics")
+def service_metrics(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return {**metrics.snapshot(), "rooms": store.stats()}
