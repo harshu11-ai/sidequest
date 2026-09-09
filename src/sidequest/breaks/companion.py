@@ -24,7 +24,6 @@ import hmac
 import json
 import random
 import secrets
-import shutil
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -44,7 +43,7 @@ _MODES = ("chess", "video")
 # Sized per mode -- a small window for the toggle panel alone, and the same
 # footprints chess/video used to launch at on their own before the merge.
 _WINDOW_SIZES = {
-    "off": (340, 480),
+    "off": (340, 400),
     "chess": (768, 700),
     "video": (1000, 700),
 }
@@ -95,7 +94,6 @@ class BreaksCompanion:
         self.chess_game = chess_game or ComputerChessGame()
         self.video_queue = video_queue or VideoQueue()
         self._catalog_by_id = {str(entry["id"]): entry for entry in self.video_queue.catalog}
-        self._stockfish_path: str | None = None
 
         self.multiplayer = multiplayer
         self._chess_mode = "multiplayer" if multiplayer is not None else "practice"
@@ -288,7 +286,6 @@ class BreaksCompanion:
             "mode": mode,
             "settings": {
                 "difficulty": self.chess_game.snapshot().difficulty,
-                "stockfish_path": self._stockfish_path,
             },
             "active": self.is_active(),
         }
@@ -309,19 +306,6 @@ class BreaksCompanion:
     def _update_settings(self, payload: dict) -> None:
         if "difficulty" in payload:
             self.chess_game.set_difficulty(payload["difficulty"])
-        if "stockfish_path" in payload:
-            raw = payload["stockfish_path"]
-            if raw is not None and not isinstance(raw, str):
-                raise ValueError("stockfish_path must be a string or null")
-            path = raw.strip() or None if isinstance(raw, str) else None
-            if path is not None and shutil.which(path) is None:
-                raise ValueError(f"could not find Stockfish executable: {path}")
-            if self.chess_game.snapshot().last_move is not None:
-                raise ValueError(
-                    "Stockfish path can only be changed before the first move"
-                )
-            self.chess_game = ComputerChessGame(stockfish_path=path)
-            self._stockfish_path = path
 
     # -- multiplayer chess ---------------------------------------------
 

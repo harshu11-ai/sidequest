@@ -70,10 +70,6 @@ function applyState(state) {
   if (difficulty && document.activeElement !== difficulty) {
     difficulty.value = state.settings.difficulty || "medium";
   }
-  const stockfishPath = document.querySelector("#breaks-stockfish-path");
-  if (stockfishPath && document.activeElement !== stockfishPath) {
-    stockfishPath.value = state.settings.stockfish_path || "";
-  }
 
   return state;
 }
@@ -134,10 +130,6 @@ const difficultySelect = document.querySelector("#breaks-difficulty");
 if (difficultySelect) {
   difficultySelect.addEventListener("change", () => saveSettings({difficulty: difficultySelect.value}));
 }
-const stockfishInput = document.querySelector("#breaks-stockfish-path");
-if (stockfishInput) {
-  stockfishInput.addEventListener("change", () => saveSettings({stockfish_path: stockfishInput.value}));
-}
 
 // -- Chess: Solo/Multiplayer segmented control + Host/Join (off.html only) --
 
@@ -182,14 +174,8 @@ if (hostJoinTabs.length) selectHostJoinTab("host");
 
 async function startMultiplayer(path, extra) {
   const message = document.querySelector("#breaks-message");
-  const relayUrl = document.querySelector("#multiplayer-relay-url");
-  const profile = document.querySelector("#multiplayer-profile");
   try {
-    const result = await postBreaks(path, {
-      relay_url: relayUrl ? relayUrl.value : "",
-      profile: profile ? profile.value : "",
-      ...extra,
-    });
+    const result = await postBreaks(path, extra);
     if (multiplayerRoomCodeLabel && result.multiplayer) multiplayerRoomCodeLabel.textContent = result.multiplayer.room_code;
     if (message) message.textContent = "";
     // The host/join endpoints return chess state, not breaks state (they

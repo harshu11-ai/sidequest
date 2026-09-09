@@ -118,9 +118,6 @@ brew install stockfish
 sidequest --breaks codex
 ```
 
-To use a Stockfish install that isn't on `PATH`, enter its path in the
-panel's Chess settings instead of passing a flag.
-
 The companion binds only to the loopback interface and protects its game API
 with a random per-session token. Chrome, Brave, Edge, or Chromium is used for a
 separate app-style window when available; otherwise it opens in the default
@@ -136,21 +133,18 @@ local chess bot.
 To play against another `sidequest` user instead of the built-in opponent,
 switch Chess to Multiplayer in the panel's Chess settings, then Host a game
 (a room code appears to share) or Join with a code you were given -- same
-settings block as difficulty and Stockfish, just its Multiplayer tab.
+settings block as difficulty, just its Multiplayer tab.
 
 While it's not your turn, the game window offers a "play vs bot while you
 wait" toggle so you're not stuck watching an empty board -- your room stays
 tracked in the background and you can switch back once your opponent moves.
 Games are hosted through a small relay service so the two of you don't need
-to be on the same network; enter a different one in the panel's Relay URL
-field to use a self-hosted relay instead of the default.
+to be on the same network.
 
 Each seat is remembered per machine (under `~/.local/state/sidequest/`), so
 hosting and joining the *same* room from two windows on one laptop -- for
 example, to try both sides yourself -- makes them collide on one shared
-seat. Real opponents on their own machines never hit this. If you do want
-to run two seats on one machine, give each a different Profile in the
-panel.
+seat. Real opponents on their own machines never hit this.
 
 Wrapper options such as `--config` and `--no-corrections` must come before
 the application name. Everything after `claude` or `codex` belongs to that
