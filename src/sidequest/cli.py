@@ -100,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
             from sidequest.lifecycle import AgentLifecycle, prepare_agent_command
 
             companion = BreaksCompanion()
+            companion.open_initial_panel()
             lifecycle = AgentLifecycle(companion, watch_codex_input=application == "codex")
             command = prepare_agent_command(command, application, companion)
 

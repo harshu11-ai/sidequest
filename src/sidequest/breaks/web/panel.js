@@ -51,6 +51,12 @@ function applyState(state) {
   const randomNote = document.querySelector("#random-note");
   if (randomNote) randomNote.hidden = !(state.toggles.chess && state.toggles.video);
 
+  // "All set" only makes sense once there's something to confirm -- with
+  // nothing toggled on, the panel has no close affordance at all and just
+  // sits open until the user dismisses it themselves.
+  const confirmButton = document.querySelector("#breaks-confirm-button");
+  if (confirmButton) confirmButton.hidden = !(state.toggles.chess || state.toggles.video);
+
   const footerNote = document.querySelector("#footer-note");
   if (footerNote) {
     footerNote.textContent =
@@ -131,6 +137,88 @@ if (difficultySelect) {
 const stockfishInput = document.querySelector("#breaks-stockfish-path");
 if (stockfishInput) {
   stockfishInput.addEventListener("change", () => saveSettings({stockfish_path: stockfishInput.value}));
+}
+
+// -- Chess: Solo/Multiplayer segmented control + Host/Join (off.html only) --
+
+const soloFields = document.querySelector("#chess-solo-fields");
+const multiplayerFields = document.querySelector("#chess-multiplayer-fields");
+const chessModeButtons = document.querySelectorAll("[data-chess-mode]");
+const hostJoinTabs = document.querySelectorAll("[data-host-join-tab]");
+const joinCodeRow = document.querySelector("#multiplayer-join-code-row");
+const hostButton = document.querySelector("#multiplayer-host-button");
+const joinButton = document.querySelector("#multiplayer-join-button");
+// Named multiplayerRoomCodeLabel, not roomCodeLabel -- chess/app.js
+// declares its own top-level `roomCodeLabel` on chess.html, and a second
+// `const roomCodeLabel` at that shared scope is the same SyntaxError class
+// the breaksToken/refreshBreaksState renames above already worked around.
+const multiplayerRoomCodeLabel = document.querySelector("#multiplayer-room-code");
+
+function selectChessMode(mode) {
+  for (const button of chessModeButtons) {
+    button.classList.toggle("segment--active", button.dataset.chessMode === mode);
+  }
+  if (soloFields) soloFields.hidden = mode !== "solo";
+  if (multiplayerFields) multiplayerFields.hidden = mode !== "multiplayer";
+}
+
+function selectHostJoinTab(tab) {
+  for (const button of hostJoinTabs) {
+    button.classList.toggle("subtab--active", button.dataset.hostJoinTab === tab);
+  }
+  if (joinCodeRow) joinCodeRow.hidden = tab !== "join";
+  if (hostButton) hostButton.hidden = tab !== "host";
+  if (joinButton) joinButton.hidden = tab !== "join";
+}
+
+for (const button of chessModeButtons) {
+  button.addEventListener("click", () => selectChessMode(button.dataset.chessMode));
+}
+for (const button of hostJoinTabs) {
+  button.addEventListener("click", () => selectHostJoinTab(button.dataset.hostJoinTab));
+}
+if (chessModeButtons.length) selectChessMode("solo");
+if (hostJoinTabs.length) selectHostJoinTab("host");
+
+async function startMultiplayer(path, extra) {
+  const message = document.querySelector("#breaks-message");
+  const relayUrl = document.querySelector("#multiplayer-relay-url");
+  const profile = document.querySelector("#multiplayer-profile");
+  try {
+    const result = await postBreaks(path, {
+      relay_url: relayUrl ? relayUrl.value : "",
+      profile: profile ? profile.value : "",
+      ...extra,
+    });
+    if (multiplayerRoomCodeLabel && result.multiplayer) multiplayerRoomCodeLabel.textContent = result.multiplayer.room_code;
+    if (message) message.textContent = "";
+    // The host/join endpoints return chess state, not breaks state (they
+    // auto-toggle chess on server-side) -- re-fetch to pick that up.
+    await refreshBreaksState();
+  } catch (error) {
+    if (message) message.textContent = error.message;
+  }
+}
+
+if (hostButton) {
+  hostButton.addEventListener("click", () => startMultiplayer("/api/multiplayer/host", {}));
+}
+if (joinButton) {
+  joinButton.addEventListener("click", () => {
+    const codeInput = document.querySelector("#multiplayer-code-input");
+    startMultiplayer("/api/multiplayer/join", {code: codeInput ? codeInput.value : ""});
+  });
+}
+
+const confirmButton = document.querySelector("#breaks-confirm-button");
+if (confirmButton) {
+  confirmButton.addEventListener("click", async () => {
+    try {
+      await postBreaks("/api/breaks/confirm", {});
+    } finally {
+      window.close();
+    }
+  });
 }
 
 refreshBreaksState();

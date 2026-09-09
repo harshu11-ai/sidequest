@@ -38,6 +38,42 @@ class CompanionWindowTests(unittest.TestCase):
         self.assertIn("--window-size=1000,600", args)
         self.assertIn("--autoplay-policy=no-user-gesture-required", args)
 
+    @patch("sidequest.browser_window.subprocess.Popen")
+    @patch("sidequest.browser_window._find_chromium", return_value="/browser")
+    def test_is_running_reflects_the_live_process(self, _find, popen) -> None:
+        process = Mock()
+        process.poll.return_value = None
+        popen.return_value = process
+        window = CompanionWindow()
+        try:
+            self.assertFalse(window.is_running())  # never opened
+            window.open("http://127.0.0.1:1234/")
+            self.assertTrue(window.is_running())
+        finally:
+            window.close()
+        self.assertFalse(window.is_running())  # closed
+
+    @patch("sidequest.browser_window.subprocess.Popen")
+    @patch("sidequest.browser_window._find_chromium", return_value="/browser")
+    def test_is_running_is_false_once_the_user_closes_the_window_themselves(
+        self, _find, popen
+    ) -> None:
+        process = Mock()
+        process.poll.return_value = None
+        popen.return_value = process
+        window = CompanionWindow()
+        try:
+            window.open("http://127.0.0.1:1234/")
+            self.assertTrue(window.is_running())
+
+            # Nothing in sidequest called hide() -- the OS process just
+            # exited on its own, the way it would if the user closed the
+            # window themselves.
+            process.poll.return_value = 0
+            self.assertFalse(window.is_running())
+        finally:
+            window.close()
+
 
 if __name__ == "__main__":
     unittest.main()
