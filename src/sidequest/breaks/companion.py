@@ -44,7 +44,7 @@ _MODES = ("chess", "video")
 # footprints chess/video used to launch at on their own before the merge.
 _WINDOW_SIZES = {
     "off": (340, 400),
-    "chess": (768, 700),
+    "chess": (768, 750),
     "video": (1000, 700),
 }
 
