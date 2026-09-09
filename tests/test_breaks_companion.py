@@ -124,23 +124,6 @@ class BreaksCompanionTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 400)
         raised.exception.close()
 
-    def test_settings_endpoint_rejects_missing_stockfish_path(self) -> None:
-        with self.assertRaises(urllib.error.HTTPError) as raised:
-            _post(self._url("/api/breaks/settings"), {"stockfish_path": "/does/not/exist"})
-        self.assertEqual(raised.exception.code, 400)
-        raised.exception.close()
-
-    def test_stockfish_path_locks_after_the_first_move(self) -> None:
-        _post(self._url("/api/chess/move"), {"move": "e2e4"})
-        with self.assertRaises(urllib.error.HTTPError) as raised:
-            _post(self._url("/api/breaks/settings"), {"stockfish_path": "/bin/echo"})
-        self.assertEqual(raised.exception.code, 400)
-        raised.exception.close()
-
-    def test_clearing_stockfish_path_falls_back_to_auto_detect(self) -> None:
-        payload = _post(self._url("/api/breaks/settings"), {"stockfish_path": ""})
-        self.assertIsNone(payload["settings"]["stockfish_path"])
-
     # -- chess passthrough ---------------------------------------------
 
     def test_move_endpoint_returns_updated_game(self) -> None:
@@ -326,7 +309,7 @@ class BreaksCompanionRealWindowTests(unittest.TestCase):
     def test_off_mode_opens_a_small_window(self) -> None:
         with patch("sidequest.breaks.companion.CompanionWindow") as window_type:
             self.companion.show()
-        window_type.assert_called_once_with(width=340, height=480)
+        window_type.assert_called_once_with(width=340, height=400)
         window_type.return_value.open.assert_called_once_with(self.companion.play_url)
 
     def test_chess_mode_opens_the_chess_sized_window(self) -> None:
@@ -383,7 +366,7 @@ class BreaksCompanionIdlePanelDismissalTests(unittest.TestCase):
             window = window_type.return_value
             window.is_running.return_value = True
             self.companion.open_initial_panel()
-            window_type.assert_called_once_with(width=340, height=480)
+            window_type.assert_called_once_with(width=340, height=400)
 
             # The user closes the real window themselves -- nothing in
             # sidequest called hide(), so is_running() would now report False.
@@ -393,7 +376,7 @@ class BreaksCompanionIdlePanelDismissalTests(unittest.TestCase):
             self.companion.show()
 
         # Never reconstructed or reopened after the dismissal was detected.
-        window_type.assert_called_once_with(width=340, height=480)
+        window_type.assert_called_once_with(width=340, height=400)
         self.assertEqual(window.open.call_count, 1)
 
 

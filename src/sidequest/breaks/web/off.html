@@ -53,11 +53,7 @@
                   <option value="hard">Hard</option>
                 </select>
               </div>
-              <div class="field-row">
-                <label for="breaks-stockfish-path">Stockfish path</label>
-                <input id="breaks-stockfish-path" type="text" placeholder="optional — falls back to the built-in engine" />
-              </div>
-              <p class="settings-note">Both lock once your first move is made.</p>
+              <p class="settings-note">Locks once your first move is made.</p>
             </div>
 
             <div id="chess-multiplayer-fields" hidden>
@@ -73,17 +69,9 @@
                 <label for="multiplayer-code-input">Code to join</label>
                 <input id="multiplayer-code-input" type="text" placeholder="ABC123" />
               </div>
-              <div class="field-row">
-                <label for="multiplayer-relay-url">Relay URL</label>
-                <input id="multiplayer-relay-url" type="text" placeholder="default relay" />
-              </div>
-              <div class="field-row">
-                <label for="multiplayer-profile">Profile</label>
-                <input id="multiplayer-profile" type="text" placeholder="only needed for two seats, one machine" />
-              </div>
               <button id="multiplayer-host-button" type="button">Host a game</button>
               <button id="multiplayer-join-button" type="button" hidden>Join</button>
-              <p class="settings-note">Difficulty and Stockfish path apply to Solo — switch back to set them.</p>
+              <p class="settings-note">Difficulty applies to Solo — switch back to set it.</p>
             </div>
           </div>
 
