@@ -85,17 +85,23 @@ sidequest --breaks codex
 sidequest --breaks claude
 ```
 
-Submitting a prompt opens a small app-style panel with Chess and Video as
-independent toggles -- both off by default. Toggle neither and the panel
-just opens and closes quietly on every turn, out of your way. Toggle Chess
-(or Video, or both) on, and your *next* prompt expands the panel into that
-game instead; toggle both on and one is picked at random each turn, so you
-aren't stuck with the same thing every time. Difficulty and an optional
-Stockfish path live in the panel itself now, not as launch flags.
+A small app-style panel opens as soon as `sidequest --breaks` launches --
+before you've even typed a prompt -- with Chess and Video as independent
+toggles, both off by default. With nothing toggled on, the panel just sits
+there quietly for as long as you leave it alone; there's no close button to
+look for. Toggle Chess (or Video, or both) on and an "All set" button
+appears -- click it and the panel closes so you can go type your prompt.
+(If you toggle something on and just go type a prompt anyway without
+clicking it, that works too -- the panel closes on its own once a real turn
+starts.) If you close the panel yourself with nothing toggled on, that's
+respected: it won't reopen for the rest of this session.
 
-The game or video queue closes when the agent finishes or requests approval,
-and resumes exactly where you left off on your next prompt, in another
-session, or under a different agent entirely -- `--breaks` is agent-agnostic.
+Once something's toggled on, breaks run their normal course: prompt -> the
+chosen game opens (at random between Chess and Video if both are on) ->
+closes for real when the agent finishes, resuming exactly where you left
+off next time, in another session, or under a different agent entirely --
+`--breaks` is agent-agnostic. A small toggle strip pinned to the top of the
+break window itself is how you change what's on for next time.
 
 In chess, you play White against a built-in practice opponent by default.
 Use the panel's difficulty control to choose Easy, Medium, or Hard; the
@@ -127,9 +133,24 @@ streams from YouTube, so it needs a network connection and isn't covered by
 the "no network requests" guarantee that applies to corrections and the
 local chess bot.
 
-Playing against another `sidequest` user instead of the built-in opponent
-isn't in this build yet -- multiplayer is coming back as a panel setting in
-a later update.
+To play against another `sidequest` user instead of the built-in opponent,
+switch Chess to Multiplayer in the panel's Chess settings, then Host a game
+(a room code appears to share) or Join with a code you were given -- same
+settings block as difficulty and Stockfish, just its Multiplayer tab.
+
+While it's not your turn, the game window offers a "play vs bot while you
+wait" toggle so you're not stuck watching an empty board -- your room stays
+tracked in the background and you can switch back once your opponent moves.
+Games are hosted through a small relay service so the two of you don't need
+to be on the same network; enter a different one in the panel's Relay URL
+field to use a self-hosted relay instead of the default.
+
+Each seat is remembered per machine (under `~/.local/state/sidequest/`), so
+hosting and joining the *same* room from two windows on one laptop -- for
+example, to try both sides yourself -- makes them collide on one shared
+seat. Real opponents on their own machines never hit this. If you do want
+to run two seats on one machine, give each a different Profile in the
+panel.
 
 Wrapper options such as `--config` and `--no-corrections` must come before
 the application name. Everything after `claude` or `codex` belongs to that
