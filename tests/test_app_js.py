@@ -1,6 +1,7 @@
-"""Runs the chess board's client-side state machine (mode switching, input
-color, and the last-turn grace period) against the real app.js source, via a
-small stubbed-DOM harness executed in Node. See tests/js_harness for details.
+"""Runs the chess board's client-side state machine (the last-turn grace
+period and the finished-window handoff) against the real app.js source, via
+a small stubbed-DOM harness executed in Node. See tests/js_harness for
+details.
 """
 
 import shutil
@@ -28,9 +29,7 @@ class AppJsStateMachineTests(unittest.TestCase):
             0,
             f"app.js state-machine harness failed:\n{result.stdout}\n{result.stderr}",
         )
-        self.assertIn(
-            "All last-turn and input-color state-machine assertions passed", result.stdout
-        )
+        self.assertIn("All last-turn state-machine assertions passed", result.stdout)
 
 
 if __name__ == "__main__":

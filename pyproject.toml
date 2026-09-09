@@ -61,6 +61,7 @@ version = { attr = "sidequest.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
+"sidequest.breaks" = ["web/*.css", "web/*.html", "web/*.js"]
 "sidequest.chess" = ["web/*.css", "web/*.html", "web/*.js", "web/*.svg", "web/*.txt"]
 "sidequest.video" = ["catalog.json", "web/*.css", "web/*.html", "web/*.js"]
 

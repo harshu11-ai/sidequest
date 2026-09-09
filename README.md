@@ -26,8 +26,7 @@ yourself.
 - pasted text passed through unchanged
 - immediate Backspace to undo the last correction
 - optional personal corrections in a small JSON config file
-- optional, resumable chess breaks while an agent turn is running
-- optional, resumable educational-video breaks (3Blue1Brown, Veritasium, and others) while an agent turn is running
+- optional `--breaks` control panel: toggle resumable chess and/or educational-video breaks live while an agent turn is running, no relaunch needed
 - transparent `--no-corrections` mode for terminal troubleshooting
 
 ## Install
@@ -79,92 +78,62 @@ To test the PTY wrapper without changing any input:
 sidequest --no-corrections codex
 ```
 
-To play chess while Codex or Claude works:
+To open the breaks control panel while Codex or Claude works:
 
 ```bash
-sidequest --chess codex
-sidequest --chess claude
+sidequest --breaks codex
+sidequest --breaks claude
 ```
 
-Submitting a prompt opens a separate chess window. The game is saved locally,
-closes when the agent finishes or requests approval, and resumes after your next
-prompt. You play White against a built-in practice opponent by default. Use the
-in-game difficulty menu to choose Easy, Medium, or Hard; the choice is saved with
-your game. The built-in opponent ranges from basic legal moves to a short
-look-ahead. With Stockfish, the same setting controls its skill level and thinking
-time.
+Submitting a prompt opens a small app-style panel with Chess and Video as
+independent toggles -- both off by default. Toggle neither and the panel
+just opens and closes quietly on every turn, out of your way. Toggle Chess
+(or Video, or both) on, and your *next* prompt expands the panel into that
+game instead; toggle both on and one is picked at random each turn, so you
+aren't stuck with the same thing every time. Difficulty and an optional
+Stockfish path live in the panel itself now, not as launch flags.
 
-For a stronger opponent, install [Stockfish](https://stockfishchess.org/) and
-make sure `stockfish` is on `PATH`. On macOS with Homebrew:
+The game or video queue closes when the agent finishes or requests approval,
+and resumes exactly where you left off on your next prompt, in another
+session, or under a different agent entirely -- `--breaks` is agent-agnostic.
+
+In chess, you play White against a built-in practice opponent by default.
+Use the panel's difficulty control to choose Easy, Medium, or Hard; the
+choice is saved with your game. The built-in opponent ranges from basic
+legal moves to a short look-ahead. With Stockfish, the same setting controls
+its skill level and thinking time.
+
+For a stronger opponent, install [Stockfish](https://stockfishchess.org/)
+and make sure `stockfish` is on `PATH` -- it's picked up automatically. On
+macOS with Homebrew:
 
 ```bash
 brew install stockfish
-sidequest --chess codex
+sidequest --breaks codex
 ```
 
-You can also provide the executable explicitly:
-
-```bash
-sidequest --chess --stockfish /path/to/stockfish claude
-```
+To use a Stockfish install that isn't on `PATH`, enter its path in the
+panel's Chess settings instead of passing a flag.
 
 The companion binds only to the loopback interface and protects its game API
 with a random per-session token. Chrome, Brave, Edge, or Chromium is used for a
 separate app-style window when available; otherwise it opens in the default
 browser.
 
-To play against another `sidequest` user instead of the built-in opponent:
+Video breaks play through a bundled catalog of math, science, and
+engineering videos (3Blue1Brown, Veritasium, Kurzgesagt, and others), with
+play/pause, skip, and go-back controls; unlike the local practice bot, this
+streams from YouTube, so it needs a network connection and isn't covered by
+the "no network requests" guarantee that applies to corrections and the
+local chess bot.
 
-```bash
-sidequest --chess --multiplayer codex     # hosts a game and prints a code to share
-sidequest --chess --join ABC123 claude    # joins with the code you were given
-```
+Playing against another `sidequest` user instead of the built-in opponent
+isn't in this build yet -- multiplayer is coming back as a panel setting in
+a later update.
 
-Sidequest's own flags (`--chess`, `--multiplayer`, `--join`, `--relay-url`,
-`--profile`, `--stockfish`, ...) always go *before* `claude`/`codex` --
-anything after the application name is passed straight through to it
-unchanged, so `sidequest --chess codex --multiplayer` sends `--multiplayer`
-to Codex, not to sidequest.
-
-While it's not your turn, the game window offers a "play vs bot while you
-wait" toggle so you're not stuck watching an empty board -- your room stays
-tracked in the background and you can switch back once your opponent moves.
-Games are hosted through a small relay service so the two of you don't need
-to be on the same network; pass `--relay-url` to use a self-hosted one
-instead of the default.
-
-Each seat is remembered per machine (under `~/.local/state/sidequest/`), so
-running both `--multiplayer` and `--join` on the *same* laptop -- for
-example, to try both sides yourself -- makes them collide on one shared
-seat. Real opponents on their own machines never hit this. If you do want to
-run two seats on one machine, give each its own `--profile`:
-
-```bash
-sidequest --chess --multiplayer --profile p1 codex   # host, seat "p1"
-sidequest --chess --join ABC123 --profile p2 claude  # guest, seat "p2"
-```
-
-Wrapper options such as `--config` and `--no-corrections` must come before the
-application name. Everything after `claude` or `codex` belongs to that app.
-
-To watch a queue of educational videos while Codex or Claude works, instead of
-chess:
-
-```bash
-sidequest --videos codex
-sidequest --videos claude
-```
-
-Submitting a prompt opens a video window styled like the chess board, playing
-through a bundled catalog of math, science, and engineering videos (3Blue1Brown,
-Veritasium, Kurzgesagt, and others). Play/pause, skip, and go back with the
-in-window controls; your place in the queue and playback position are saved
-locally and resume on your next prompt, in another session, or under a
-different agent entirely -- `--videos` is agent-agnostic the same way `--chess`
-is. `--chess` and `--videos` cannot be combined in one session. Like
-multiplayer chess, this feature streams from YouTube, so it needs a network
-connection and is not covered by the "no network requests" guarantee that
-applies to corrections and the local chess bot.
+Wrapper options such as `--config` and `--no-corrections` must come before
+the application name. Everything after `claude` or `codex` belongs to that
+app.
 
 Update a pipx-managed installation from GitHub with:
 
@@ -255,11 +224,11 @@ can be replaced without changing the terminal input processor.
 
 Prompts are processed in memory on the local machine. Sidequest does not
 store prompts, terminal output, environment variables, or source code.
-Chess mode stores only the current board position beneath
+Chess breaks store only the current board position beneath
 `~/.local/state/sidequest/` (or `XDG_STATE_HOME`) so games can resume.
-Video mode stores only your queue position and playback position the same
-way; unlike chess against the built-in bot, it streams video from YouTube,
-so YouTube receives normal video-playback requests while it's open.
+Video breaks store only your queue position and playback position the same
+way; unlike chess against the built-in bot, video streams from YouTube, so
+YouTube receives normal video-playback requests while that break is open.
 
 ## License
 

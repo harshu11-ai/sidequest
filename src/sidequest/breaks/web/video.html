@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#181a19">
     <title>Sidequest Videos</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/video/style.css">
+    <link rel="stylesheet" href="/breaks/panel.css">
   </head>
   <body>
     <main>
@@ -16,6 +17,20 @@
         </div>
         <div class="agent-status"><span class="status-dot status-dot--online" id="agent-dot"></span><span id="agent-status">Connecting</span></div>
       </header>
+
+      <div class="mini-strip">
+        <label class="mini-toggle" aria-label="Chess, off for your next prompt">
+          <input type="checkbox" data-toggle="chess" hidden>
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="3" y="3" width="6" height="6" fill="currentColor" opacity=".9"/><rect x="11" y="3" width="6" height="6" fill="currentColor" opacity=".35"/><rect x="3" y="11" width="6" height="6" fill="currentColor" opacity=".35"/><rect x="11" y="11" width="6" height="6" fill="currentColor" opacity=".9"/></svg>
+          Chess
+        </label>
+        <label class="mini-toggle" aria-label="Video, on for your next prompt">
+          <input type="checkbox" data-toggle="video" checked hidden>
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2.5" y="4" width="15" height="12" rx="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8.5 7.5 13 10l-4.5 2.5v-5Z" fill="currentColor"/></svg>
+          Video
+        </label>
+        <span class="mini-strip-hint">Reopens next turn with whatever's toggled on</span>
+      </div>
 
       <section class="watch" aria-label="Video player">
         <div class="player-column">
@@ -57,6 +72,7 @@
       </div>
     </div>
     <script src="https://www.youtube.com/iframe_api"></script>
-    <script src="/app.js"></script>
+    <script src="/video/app.js"></script>
+    <script src="/breaks/panel.js"></script>
   </body>
 </html>
