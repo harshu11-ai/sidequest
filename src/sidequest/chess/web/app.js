@@ -8,7 +8,14 @@ const difficulty = document.querySelector("#difficulty");
 const message = document.querySelector("#message");
 const finished = document.querySelector("#finished");
 const lastTurnNotice = document.querySelector("#last-turn-notice");
+const sideNote = document.querySelector("#side-note");
 const newGameButton = document.querySelector("#new-game");
+const practicePanel = document.querySelector("#practice-panel");
+const multiplayerPanel = document.querySelector("#multiplayer-panel");
+const roomCodeLabel = document.querySelector("#room-code");
+const opponentDot = document.querySelector("#opponent-dot");
+const opponentStatusLabel = document.querySelector("#opponent-status");
+const togglePracticeButton = document.querySelector("#toggle-practice");
 const lastMoveMarker = {class: "marker-square-last", slice: "markerSquare"};
 const animationDuration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 260;
 let chessboard = null;
@@ -23,6 +30,7 @@ function positionPart(fen) {
 }
 
 function yourColor() {
+  if (state?.mode === "multiplayer" && state.multiplayer) return state.multiplayer.you;
   return "white";
 }
 
@@ -70,6 +78,9 @@ function enableInputIfReady() {
   const shouldEnable =
     (state?.active || awaitingLastTurn) && state.turn === desiredColor && !isAnimating;
   if (shouldEnable) {
+    // Re-register whenever the color changes too, not just when input was off --
+    // switching between multiplayer (as Black, say) and practice (always White)
+    // otherwise leaves the board listening for the wrong color's pieces.
     if (!chessboard.isMoveInputEnabled() || enabledInputColor !== desiredColor) {
       chessboard.enableMoveInput(inputHandler, CMChessboard.COLOR[desiredColor]);
       enabledInputColor = desiredColor;
@@ -93,10 +104,14 @@ function renderMetadata(nextState) {
   statusLabel.textContent = state.status;
   showLastMove();
 
+  const multiplayer = state.multiplayer;
+  const inMultiplayerMode = Boolean(multiplayer) && state.mode === "multiplayer";
   document.querySelector("#agent-status").textContent = state.active ? "Agent working" : "Agent ready";
   document.querySelector("#agent-dot").classList.toggle("status-dot--online", state.active);
-  document.querySelector("#opponent-color").textContent = "BLACK";
-  document.querySelector("#player-piece").textContent = "♙";
+  document.querySelector("#mode-label").textContent = inMultiplayerMode ? "Multiplayer" : "Practice";
+  document.querySelector("#opponent-name").textContent = inMultiplayerMode ? "Opponent" : "Practice bot";
+  document.querySelector("#opponent-color").textContent = yourColor() === "white" ? "BLACK" : "WHITE";
+  document.querySelector("#player-piece").textContent = yourColor() === "white" ? "♙" : "♟";
   document.querySelector("#move-number").textContent = `MOVE ${(state.fen.split(" ")[5] || "1").padStart(2, "0")}`;
   document.querySelector("#last-move").textContent = state.last_move
     ? `${state.last_move.slice(0, 2)} → ${state.last_move.slice(2, 4)}${state.last_move[4] ? ` =${state.last_move[4].toUpperCase()}` : ""}`
@@ -105,13 +120,36 @@ function renderMetadata(nextState) {
     state.status === "Checkmate" || state.status === "Stalemate" ? "Game complete. Stay for another?"
       : state.turn === yourColor() ? "Take your time. Find your next move."
         : "The board is in your opponent’s hands.";
+  multiplayerPanel.hidden = !multiplayer;
+  practicePanel.hidden = inMultiplayerMode;
+  newGameButton.hidden = inMultiplayerMode;
 
-  engineLabel.textContent = state.engine;
-  difficulty.value = state.difficulty || "medium";
-  difficulty.disabled = state.last_move != null;
-  difficulty.title = difficulty.disabled
-    ? "Difficulty is locked once the game has started. Start a new game to change it."
-    : "";
+  if (multiplayer) {
+    roomCodeLabel.textContent = multiplayer.room_code;
+    opponentStatusLabel.textContent = multiplayer.opponent_connected
+      ? "Connected"
+      : multiplayer.room_status === "waiting_for_opponent"
+        ? "Waiting to join"
+        : "Disconnected";
+    opponentDot.classList.toggle("status-dot--online", multiplayer.opponent_connected);
+    opponentDot.classList.toggle("status-dot--offline", !multiplayer.opponent_connected);
+    togglePracticeButton.textContent =
+      state.mode === "multiplayer" ? "Play vs bot while you wait" : "Back to multiplayer game";
+    sideNote.textContent = inMultiplayerMode
+      ? `You play ${multiplayer.you === "white" ? "White" : "Black"}`
+      : "You play White (practice)";
+  } else {
+    sideNote.textContent = "You play White";
+  }
+
+  if (!inMultiplayerMode) {
+    engineLabel.textContent = state.engine;
+    difficulty.value = state.difficulty || "medium";
+    difficulty.disabled = state.last_move != null;
+    difficulty.title = difficulty.disabled
+      ? "Difficulty is locked once the game has started. Start a new game to change it."
+      : "";
+  }
 
   if (state.active) {
     wasActive = true;
@@ -171,7 +209,7 @@ async function submitMove(move) {
   const previousState = state;
   const wasAwaitingLastTurn = awaitingLastTurn;
   isAnimating = true;
-  statusLabel.textContent = "Computer thinking";
+  statusLabel.textContent = state.mode === "multiplayer" ? "Sending move…" : "Computer thinking";
   try {
     const nextState = await request("/api/chess/move", {move});
     if (nextState.player_fen) {
@@ -181,13 +219,14 @@ async function submitMove(move) {
       statusLabel.textContent = "Opponent moving";
       await chessboard.setPosition(nextState.fen, true);
     } else if (!nextState.player_fen) {
+      // Multiplayer moves have neither field -- just show the result directly.
       await chessboard.setPosition(nextState.fen, true);
     }
     isAnimating = false;
     if (wasAwaitingLastTurn) {
       // They just took the one extra move we promised them -- close now,
-      // regardless of whose turn it is next (the bot replies inline, which
-      // would otherwise hand the turn straight back to them).
+      // regardless of whose turn it is next (practice's bot replies inline,
+      // which would otherwise hand the turn straight back to them).
       renderMetadata(nextState);
       closeAfterFinish();
       return;
@@ -238,6 +277,25 @@ async function changeDifficulty() {
   }
 }
 
+async function toggleMode() {
+  if (isAnimating || !state) return;
+  const nextMode = state.mode === "multiplayer" ? "practice" : "multiplayer";
+  isAnimating = true;
+  try {
+    const nextState = await request("/api/chess/mode", {mode: nextMode});
+    state = nextState;
+    if (chessboard) {
+      chessboard.setOrientation(CMChessboard.COLOR[yourColor()]);
+      await chessboard.setPosition(nextState.fen, false);
+    }
+    isAnimating = false;
+    renderMetadata(nextState);
+  } catch (error) {
+    isAnimating = false;
+    message.textContent = error.message;
+  }
+}
+
 async function refresh() {
   if (isAnimating) return;
   try {
@@ -267,6 +325,7 @@ async function closeGameWindow() {
 
 newGameButton.addEventListener("click", resetGame);
 difficulty.addEventListener("change", changeDifficulty);
+togglePracticeButton.addEventListener("click", toggleMode);
 document.querySelector("#return").addEventListener("click", closeGameWindow);
 document.querySelector("#close-window").addEventListener("click", () => window.close());
 refresh();

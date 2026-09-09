@@ -59,6 +59,15 @@ class CompanionWindow:
         except OSError:
             webbrowser.open_new(url)
 
+    def is_running(self) -> bool:
+        """Whether this window's browser process is still alive.
+
+        Lets a caller notice the user closed the window themselves (rather
+        than sidequest calling `hide()`) -- `poll()` only updates lazily, on
+        a call, so this is the one way to detect that after the fact.
+        """
+        return self._process is not None and self._process.poll() is None
+
     def hide(self) -> None:
         process = self._process
         self._process = None

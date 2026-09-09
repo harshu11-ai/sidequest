@@ -69,6 +69,7 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         companion_type.assert_called_once_with()
+        companion.open_initial_panel.assert_called_once_with()
         lifecycle_type.assert_called_once_with(companion, watch_codex_input=True)
         prepare_command.assert_called_once_with(["codex"], "codex", companion)
         run_in_pty.assert_called_once_with(
