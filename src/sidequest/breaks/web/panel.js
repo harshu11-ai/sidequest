@@ -4,7 +4,7 @@
 // (the pinned mini-strip on each) -- every toggle control on any of these
 // pages is a checkbox carrying `data-toggle="chess"|"video"`, so this one
 // file can wire all three without knowing which page it's on. Elements that
-// only exist on off.html (settings fields, the mode/footer labels) are
+// only exist on off.html (settings fields and the mode label) are
 // looked up defensively and simply skipped where they're absent.
 
 // Named breaksToken, not token -- this script loads alongside chess/app.js
@@ -42,29 +42,20 @@ function applyState(state) {
   const modeLabel = document.querySelector("#breaks-mode-label");
   if (modeLabel) {
     modeLabel.textContent =
-      state.toggles.chess && state.toggles.video ? "RANDOM"
-        : state.toggles.chess ? "CHESS"
-          : state.toggles.video ? "VIDEO"
-            : "OFF";
+      state.toggles.chess && state.toggles.video ? "Random"
+        : state.toggles.chess ? "Chess"
+          : state.toggles.video ? "Video"
+            : "Off";
   }
 
   const randomNote = document.querySelector("#random-note");
   if (randomNote) randomNote.hidden = !(state.toggles.chess && state.toggles.video);
 
-  // "All set" only makes sense once there's something to confirm -- with
+  // Done only makes sense once there's something to confirm -- with
   // nothing toggled on, the panel has no close affordance at all and just
   // sits open until the user dismisses it themselves.
   const confirmButton = document.querySelector("#breaks-confirm-button");
   if (confirmButton) confirmButton.hidden = !(state.toggles.chess || state.toggles.video);
-
-  const footerNote = document.querySelector("#footer-note");
-  if (footerNote) {
-    footerNote.textContent =
-      state.toggles.chess && state.toggles.video ? "Could be chess, could be a video. You'll see."
-        : state.toggles.chess ? "Chess is on for your next prompt."
-          : state.toggles.video ? "Video is on for your next prompt."
-            : "Nothing's on — your agent runs straight through.";
-  }
 
   const difficulty = document.querySelector("#breaks-difficulty");
   if (difficulty && document.activeElement !== difficulty) {

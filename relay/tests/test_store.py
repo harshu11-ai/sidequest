@@ -1,5 +1,7 @@
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 
 from app.store import ROOM_TTL_SECONDS, InMemoryRoomStore, Room
 
@@ -30,10 +32,22 @@ class InMemoryRoomStoreTests(unittest.TestCase):
         store.create(room)
         self.assertEqual(store.get("ABC123"), room)
 
-    def test_save_ignores_unknown_room(self) -> None:
+    def test_update_rejects_unknown_room(self) -> None:
         store = InMemoryRoomStore()
-        store.save(make_room("GHOST1", time.time()))
-        self.assertIsNone(store.get("GHOST1"))
+        with self.assertRaises(KeyError):
+            store.update("GHOST1", lambda room: room)
+
+    def test_update_is_atomic_across_threads(self) -> None:
+        store = InMemoryRoomStore()
+        store.create(make_room("ABC123", 0))
+
+        def increment() -> None:
+            store.update("ABC123", lambda room: replace(room, updated_at=room.updated_at + 1))
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            list(executor.map(lambda _: increment(), range(100)))
+
+        self.assertEqual(store.get("ABC123").updated_at, 100)
 
     def test_sweep_expired_removes_stale_rooms_only(self) -> None:
         store = InMemoryRoomStore()

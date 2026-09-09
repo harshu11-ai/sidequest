@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
 
     application = command[0]
     if application not in SUPPORTED_APPS:
-        parser.error("the prototype currently supports only 'claude' and 'codex'")
+        parser.error("sidequest supports only 'claude' and 'codex'")
     if shutil.which(application) is None:
         parser.error(f"could not find '{application}' on PATH")
 

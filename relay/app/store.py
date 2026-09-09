@@ -1,19 +1,11 @@
-"""Room storage.
-
-`RoomStore` is kept deliberately narrow so the only implementation today,
-`InMemoryRoomStore`, can later be swapped for something durable (SQLite,
-Postgres) without touching the route logic in `main.py`. Games are
-short-lived, so losing one on a process restart is an acceptable v1
-tradeoff -- the alternative of provisioning a database isn't worth the
-complexity until this actually needs to survive redeploys mid-game.
-"""
+"""Thread-safe in-memory storage for short-lived multiplayer rooms."""
 
 from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
 
 ROOM_TTL_SECONDS = 6 * 60 * 60  # abandoned rooms are swept after 6 hours
 
@@ -40,13 +32,6 @@ class Room:
         return "in_progress"
 
 
-class RoomStore(Protocol):
-    def create(self, room: Room) -> None: ...
-    def get(self, code: str) -> Room | None: ...
-    def save(self, room: Room) -> None: ...
-    def sweep_expired(self) -> None: ...
-
-
 class InMemoryRoomStore:
     """Holds every room in a process-local dict.
 
@@ -67,10 +52,19 @@ class InMemoryRoomStore:
         with self._lock:
             return self._rooms.get(code)
 
-    def save(self, room: Room) -> None:
+    def update(self, code: str, transform: Callable[[Room], Room]) -> Room:
+        """Atomically transform and return a room.
+
+        Holding the lock while ``transform`` runs prevents simultaneous joins,
+        moves, or presence updates from overwriting one another.
+        """
         with self._lock:
-            if room.code in self._rooms:
-                self._rooms[room.code] = room
+            room = self._rooms.get(code)
+            if room is None:
+                raise KeyError(code)
+            updated = transform(room)
+            self._rooms[code] = updated
+            return updated
 
     def sweep_expired(self) -> None:
         cutoff = time.time() - ROOM_TTL_SECONDS

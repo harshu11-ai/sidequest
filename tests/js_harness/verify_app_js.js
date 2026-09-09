@@ -25,7 +25,7 @@ function makeElement(id) {
 const elements = {};
 for (const id of [
   "board", "status", "engine", "difficulty", "message", "finished", "last-turn-notice",
-  "side-note", "new-game", "practice-panel", "multiplayer-panel", "room-code",
+  "new-game", "practice-panel", "multiplayer-panel", "room-code",
   "opponent-dot", "opponent-status", "toggle-practice", "return", "close-window",
   "turn-dot",
 ]) {

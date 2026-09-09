@@ -1,22 +1,4 @@
-"""Loopback web companion for `sidequest --breaks`.
-
-One window, one origin, one server -- Chess and Video are live toggles
-inside it rather than two separate launch-time companions. The idle panel
-(nothing toggled on) opens the moment sidequest launches, before the first
-prompt, and stays open until you either confirm a choice ("All set") or
-close it yourself -- closing it yourself is respected for the rest of the
-session, not reopened. Once something's toggled on and confirmed, every
-turn from then on opens a fresh window sized for whichever game is
-picked (at random if both Chess and Video are on) and closes it for real
-when the turn ends; the mini-strip on the break page itself is how you
-change what's toggled on for next time.
-
-Chess can run solo (the built-in practice bot) and/or multiplayer (a
-`RemoteChessGame` hosted or joined live from the panel) -- both can be
-alive at once, and switching between them just changes which one is
-authoritative for `/api/chess/*`, the way `chess/companion.py`'s old
-`ChessCompanion._set_mode` worked before the Phase 1 merge.
-"""
+"""Loopback web companion for resumable chess and video breaks."""
 
 from __future__ import annotations
 
@@ -40,8 +22,7 @@ from sidequest.video.queue import VideoQueue
 _MAX_REQUEST_BYTES = 4096
 _MODES = ("chess", "video")
 
-# Sized per mode -- a small window for the toggle panel alone, and the same
-# footprints chess/video used to launch at on their own before the merge.
+# Sized per mode: a compact settings panel and larger activity windows.
 _WINDOW_SIZES = {
     "off": (340, 400),
     "chess": (768, 750),
@@ -149,7 +130,7 @@ class BreaksCompanion:
             self._active = True
         with self._settings_lock:
             if self._chess_on and self._video_on:
-                self._active_mode = random.choice(list(_MODES))
+                self._active_mode = random.choice(_MODES)
             elif self._chess_on:
                 self._active_mode = "chess"
             elif self._video_on:
@@ -167,9 +148,8 @@ class BreaksCompanion:
             if mode == "off":
                 self._open_idle_panel()
             else:
-                # In case the idle panel was left open without an explicit
-                # "All set" -- toggling something on and just going straight
-                # to the terminal should still work, not require the button.
+                # Toggling something on and returning directly to the terminal
+                # should work even if the user does not press Done.
                 self._close_idle_panel()
                 self._open_window(mode)
         except OSError:
@@ -268,8 +248,9 @@ class BreaksCompanion:
             window.hide()
 
     def _confirm_initial_panel(self) -> dict[str, object]:
-        """POST /api/breaks/confirm -- "All set": closes the idle panel for
-        real. Decoupled from `_active`, same reasoning as
+        """Close the idle panel after the user confirms their settings.
+
+        Decoupled from `_active`, same reasoning as
         open_initial_panel() -- this can fire whether or not a turn happens
         to be in progress.
         """

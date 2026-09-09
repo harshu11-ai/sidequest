@@ -1,36 +1,9 @@
-:root {
-  color-scheme: dark;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #181a19;
-  color: #eceee8;
-  font-synthesis: none;
-  --muted: #949b93;
-  --line: #30342f;
-  --accent: #c0d2a6;
-  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-* { box-sizing: border-box; }
-[hidden] { display: none !important; }
-html, body { width: 100%; min-height: 100%; margin: 0; }
-body { -webkit-font-smoothing: antialiased; }
-main { max-width: 1040px; margin: auto; padding: 0 28px; }
-h1, h2, p { margin: 0; }
-.app-header { height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 650; letter-spacing: -.5px; }
-.brand-mark { width: 25px; height: 25px; color: var(--accent); margin-right: 2px; }
-.brand-divider { color: #60675e; margin: 0 3px; font-weight: 400; }
-h1 { font-size: 14px; font-weight: 450; letter-spacing: 0; color: #b6bdb2; }
-.agent-status { display: flex; align-items: center; gap: 8px; font: 11px var(--mono); color: #b6bdb2; }
-.status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #777d74; flex-shrink: 0; }
-.status-dot--online { background: var(--accent); }
-.status-dot--offline { background: #777d74; }
-
 .watch { display: flex; justify-content: center; align-items: stretch; gap: 28px; padding: 16px 0 12px; }
 .player-column { width: min(700px, calc(100% - 236px)); min-width: 240px; flex-shrink: 0; }
 .player-shell { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 3px; background: #000; box-shadow: 0 0 0 1px #ffffff12, 0 8px 24px #00000020; }
 .player-shell #yt-player, .player-shell iframe { width: 100%; height: 100%; border: 0; }
 .player-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 10px; }
-.video-title { font-size: 14px; font-weight: 550; color: #eceee8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-title { font-size: 14px; font-weight: 550; color: #f2f4f7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-detail { color: var(--muted); font: 11px var(--mono); letter-spacing: .04em; flex-shrink: 0; }
 .controls { margin-top: 10px; display: flex; gap: 8px; }
 .controls button { display: inline-flex; align-items: center; gap: 8px; }
@@ -38,35 +11,16 @@ h1 { font-size: 14px; font-weight: 450; letter-spacing: 0; color: #b6bdb2; }
 .controls button:disabled { opacity: .45; cursor: not-allowed; }
 
 .side-column { width: 208px; flex-shrink: 0; padding-top: 8px; display: flex; flex-direction: column; gap: 10px; }
-.session-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
-.eyebrow { color: var(--muted); font: 10px/1.4 var(--mono); letter-spacing: .1em; }
-.mode-label { padding: 3px 6px; border: 1px solid #3b4135; border-radius: 4px; color: #b9c6a9; font: 10px var(--mono); }
-.turn-hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 4px 0 0; }
-.last-turn-notice { padding: 8px 10px; margin: 0; border-left: 2px solid var(--accent); background: #252c20; color: #d2dfc1; font-size: 12px; line-height: 1.4; }
+.section-title { margin-bottom: 10px; }
+.last-turn-notice { padding: 8px 10px; margin: 0; border-left: 2px solid var(--accent); background: #1f2632; color: #d7dfef; font-size: 12px; line-height: 1.4; }
 .queue-list { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; flex: 1; overflow: hidden; }
 .queue-item { font-size: 11px; line-height: 1.5; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.queue-item--current { color: #d8ddd2; font-weight: 550; }
+.queue-item--current { color: #dde1e7; font-weight: 550; }
 .queue-item--watched::before { content: "✓ "; color: var(--accent); }
-button { min-height: 33px; border: 1px solid transparent; border-radius: 5px; font: 500 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-button { padding: 7px 12px; cursor: pointer; color: #20271b; background: var(--accent); transition: background .15s, border-color .15s; }
-button:hover { background: #d0dfbc; }
-button:active { transform: translateY(1px); }
-button.secondary { color: #d8ddd2; background: transparent; border-color: #41463b; }
-button.secondary:hover { background: #282d25; border-color: #6a745e; }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .actions { display: grid; gap: 6px; padding-bottom: 2px; margin-top: auto; }
 .actions button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
 #return { justify-content: space-between; }
 #return span { font-size: 18px; line-height: 16px; }
-footer { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding: 12px 0 16px; color: var(--muted); font-size: 11px; }
-.footer-detail { font: 9px var(--mono); letter-spacing: .08em; }
-.footer-detail span { margin: 0 6px; color: #5d6655; }
-.finished { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; background: #141713e8; backdrop-filter: blur(12px); }
-.finished > div { width: min(390px, 100%); padding: 32px; border: 1px solid #414937; border-radius: 10px; background: #1c2119; box-shadow: 0 24px 80px #0005; }
-.finish-mark { display: block; color: var(--accent); font-size: 32px; margin-bottom: 24px; }
-.finished h2 { font-size: 27px; font-weight: 550; letter-spacing: -.8px; margin: 12px 0; }
-.finished p:not(.eyebrow) { color: #aab3a2; font-size: 13px; line-height: 1.7; margin-bottom: 24px; }
-.finished button { width: 100%; display: flex; justify-content: space-between; }
 @media (min-width: 900px) and (min-height: 760px) { main { padding-top: 20px; } .watch { gap: 36px; padding-top: 28px; } .side-column { width: 236px; } }
 @media (max-width: 620px) {
   main { padding: 0 18px; max-width: 480px; }
@@ -76,6 +30,4 @@ footer { display: flex; justify-content: space-between; gap: 12px; border-top: 1
   .watch { flex-direction: column; gap: 18px; padding-top: 12px; }
   .player-column { width: 100%; min-width: 0; }
   .side-column { width: 100%; padding: 18px 0 0; border-top: 1px solid var(--line); }
-  footer { font-size: 10px; }
 }
-@media (prefers-reduced-motion: reduce) { button { transition: none; } }
