@@ -7,10 +7,16 @@
 // only exist on off.html (settings fields, the mode/footer labels) are
 // looked up defensively and simply skipped where they're absent.
 
-const token = new URLSearchParams(window.location.search).get("token") || "";
+// Named breaksToken, not token -- this script loads alongside chess/app.js
+// or video/app.js on the same page, as a plain (non-module) <script>, so it
+// shares their top-level scope; both already declare their own `const
+// token`, and a second `const token` at that scope is a SyntaxError that
+// silently kills this whole script (caught live in a real-browser smoke
+// test, not by the Python test suite, which never executes the JS).
+const breaksToken = new URLSearchParams(window.location.search).get("token") || "";
 
 async function fetchBreaksState() {
-  const response = await fetch(`/api/breaks/state?token=${encodeURIComponent(token)}`, {
+  const response = await fetch(`/api/breaks/state?token=${encodeURIComponent(breaksToken)}`, {
     cache: "no-store",
   });
   if (!response.ok) throw new Error("Unable to read breaks state");
@@ -18,7 +24,7 @@ async function fetchBreaksState() {
 }
 
 async function postBreaks(path, payload) {
-  const response = await fetch(`${path}?token=${encodeURIComponent(token)}`, {
+  const response = await fetch(`${path}?token=${encodeURIComponent(breaksToken)}`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(payload),
@@ -66,7 +72,14 @@ function applyState(state) {
   return state;
 }
 
-async function refresh() {
+// Named refreshBreaksState, not refresh -- chess/app.js declares its own
+// top-level `refresh` on chess.html. Unlike the `const token` collision
+// above, two `function refresh(){}` declarations don't throw; the second
+// one silently shadows the first in the shared global scope instead, which
+// only "worked" here by luck of the two scripts' own setInterval calls each
+// capturing their own function reference before the other one loaded. Not
+// worth relying on -- keep the name unique instead.
+async function refreshBreaksState() {
   try {
     applyState(await fetchBreaksState());
   } catch (error) {
@@ -120,5 +133,5 @@ if (stockfishInput) {
   stockfishInput.addEventListener("change", () => saveSettings({stockfish_path: stockfishInput.value}));
 }
 
-refresh();
-window.setInterval(refresh, 1500);
+refreshBreaksState();
+window.setInterval(refreshBreaksState, 1500);
