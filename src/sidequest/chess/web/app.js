@@ -137,7 +137,19 @@ function closeAfterFinish() {
   awaitingLastTurn = false;
   lastTurnNotice.hidden = true;
   finished.hidden = false;
-  window.setTimeout(() => window.close(), 350);
+  window.setTimeout(collapseWindow, 350);
+}
+
+async function collapseWindow() {
+  // The window persists across turns (see BreaksCompanion) -- this asks the
+  // server to shrink it back to the toggle panel in place, rather than
+  // closing it the way earlier versions did.
+  try {
+    await fetch(`/api/breaks/collapse?token=${encodeURIComponent(token)}`, {method: "POST"});
+  } catch (error) {
+    // Best-effort -- the next turn's navigate() puts the window back in the
+    // right place regardless.
+  }
 }
 
 function createBoard(initialState) {
@@ -261,13 +273,13 @@ async function closeGameWindow() {
   try {
     await request("/lifecycle/stop", {});
   } finally {
-    window.close();
+    collapseWindow();
   }
 }
 
 newGameButton.addEventListener("click", resetGame);
 difficulty.addEventListener("change", changeDifficulty);
 document.querySelector("#return").addEventListener("click", closeGameWindow);
-document.querySelector("#close-window").addEventListener("click", () => window.close());
+document.querySelector("#close-window").addEventListener("click", collapseWindow);
 refresh();
 window.setInterval(refresh, 500);

@@ -1,11 +1,13 @@
 """Loopback web companion for `sidequest --breaks`.
 
 One window, one origin, one server -- Chess and Video are live toggles
-inside it rather than two separate launch-time companions. When a turn
-starts, whichever games are toggled on are candidates: one is picked (at
-random if both are on) and the window opens showing it; if neither is
-toggled on, the window still opens, showing just the toggle panel, so you
-can turn something on for next time.
+inside it rather than two separate launch-time companions. The window
+opens once, on the first turn, and stays open for the rest of the session:
+later turns resize and reload it in place (see CompanionWindow.navigate())
+rather than closing and respawning it. When a turn starts, whichever games
+are toggled on are candidates: one is picked (at random if both are on)
+and the window shows it; if neither is toggled on, it shows just the
+toggle panel, so you can turn something on for next time.
 
 Multiplayer chess is intentionally not wired here -- Chess is solo-only in
 this pass; see the plan for the follow-up that moves host/join into the
@@ -20,6 +22,7 @@ import random
 import secrets
 import shutil
 import threading
+from contextlib import suppress
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
@@ -81,7 +84,7 @@ class BreaksCompanion:
         video_queue: VideoQueue | None = None,
         *,
         browser_open: Any | None = None,
-        browser_close: Any | None = None,
+        browser_navigate: Any | None = None,
     ) -> None:
         self.chess_game = chess_game or ComputerChessGame()
         self.video_queue = video_queue or VideoQueue()
@@ -93,9 +96,15 @@ class BreaksCompanion:
         self._active_mode = "off"
         self._settings_lock = threading.Lock()
 
+        # The window is opened once (browser_open) and, from then on, only
+        # resized/reloaded in place (browser_navigate) -- see navigate() on
+        # CompanionWindow. self._window stays None on the injected/test path
+        # (browser_open/browser_navigate stand in for it entirely); real
+        # usage constructs it lazily on the first show().
         self._injected_open = browser_open
-        self._injected_close = browser_close
-        self._windows: dict[str, CompanionWindow] = {}
+        self._injected_navigate = browser_navigate
+        self._window: CompanionWindow | None = None
+        self._window_opened = False
 
         self._token = secrets.token_urlsafe(24)
         self._active = False
@@ -141,17 +150,19 @@ class BreaksCompanion:
                 self._active_mode = "off"
             mode = self._active_mode
         try:
-            self._open_window(mode)
+            self._ensure_window_open()
+            self._navigate_window(mode)
         except OSError:
             with self._active_lock:
                 self._active = False
 
     def hide(self) -> None:
+        # No window action here -- the window keeps showing whatever it was
+        # showing. The client's own grace-period logic (chess/video app.js)
+        # decides when to actually POST /api/breaks/collapse and shrink it;
+        # this just flips the `active` flag those pages already poll for.
         with self._active_lock:
-            was_active = self._active
             self._active = False
-        if was_active:
-            self._close_window()
 
     def is_active(self) -> bool:
         with self._active_lock:
@@ -162,30 +173,35 @@ class BreaksCompanion:
         self._server.shutdown()
         self._server.server_close()
         self._thread.join(timeout=2)
-        if self._injected_close is None:
-            for window in self._windows.values():
-                window.close()
+        if self._window is not None:
+            self._window.close()
 
     # -- window management ----------------------------------------------
 
-    def _open_window(self, mode: str) -> None:
+    def _ensure_window_open(self) -> None:
         if self._injected_open is not None:
-            self._injected_open(self.play_url)
+            if not self._window_opened:
+                self._injected_open(self.play_url)
+                self._window_opened = True
             return
-        width, height = _WINDOW_SIZES[mode]
-        window = self._windows.get(mode)
-        if window is None:
-            window = CompanionWindow(width=width, height=height)
-            self._windows[mode] = window
-        window.open(self.play_url)
+        if self._window is None:
+            self._window = CompanionWindow()
+            self._window.open(self.play_url)
 
-    def _close_window(self) -> None:
-        if self._injected_close is not None:
-            self._injected_close()
+    def _navigate_window(self, mode: str) -> None:
+        width, height = _WINDOW_SIZES[mode]
+        if self._injected_navigate is not None:
+            self._injected_navigate(self.play_url, width, height)
             return
-        window = self._windows.get(self._active_mode)
-        if window is not None:
-            window.hide()
+        assert self._window is not None  # _ensure_window_open() already ran
+        self._window.navigate(self.play_url, width, height)
+
+    def _collapse(self) -> dict[str, object]:
+        with self._settings_lock:
+            self._active_mode = "off"
+        with suppress(OSError):
+            self._navigate_window("off")
+        return self._breaks_state()
 
     # -- state -----------------------------------------------------------
 
@@ -312,6 +328,7 @@ class BreaksCompanion:
         known_paths = {
             "/api/breaks/toggle",
             "/api/breaks/settings",
+            "/api/breaks/collapse",
             "/api/chess/move",
             "/api/chess/new",
             "/api/chess/difficulty",
@@ -349,6 +366,8 @@ class BreaksCompanion:
         if path == "/api/breaks/settings":
             self._update_settings(payload)
             return self._breaks_state()
+        if path == "/api/breaks/collapse":
+            return self._collapse()
         if path == "/api/chess/move":
             state = self.chess_game.move(payload.get("move", "")).as_dict()
             state["active"] = self.is_active()

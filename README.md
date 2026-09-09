@@ -86,16 +86,20 @@ sidequest --breaks claude
 ```
 
 Submitting a prompt opens a small app-style panel with Chess and Video as
-independent toggles -- both off by default. Toggle neither and the panel
-just opens and closes quietly on every turn, out of your way. Toggle Chess
-(or Video, or both) on, and your *next* prompt expands the panel into that
-game instead; toggle both on and one is picked at random each turn, so you
-aren't stuck with the same thing every time. Difficulty and an optional
-Stockfish path live in the panel itself now, not as launch flags.
+independent toggles -- both off by default. It stays open for the rest of
+the session, growing and shrinking in place rather than closing between
+turns: toggle neither and it just sits there quietly as the small panel;
+toggle Chess (or Video, or both) on, and your *next* prompt grows it into
+that game instead, shrinking back to the panel once the agent finishes or
+you click back. Toggle both on and one is picked at random each turn, so
+you aren't stuck with the same thing every time. Difficulty and an optional
+Stockfish path live in the panel itself now, not as launch flags. The panel
+doesn't automatically come to the front or hand focus back to your
+terminal -- switch to and from it like any other window.
 
-The game or video queue closes when the agent finishes or requests approval,
-and resumes exactly where you left off on your next prompt, in another
-session, or under a different agent entirely -- `--breaks` is agent-agnostic.
+Whichever game is showing resumes exactly where you left off on your next
+prompt, in another session, or under a different agent entirely --
+`--breaks` is agent-agnostic.
 
 In chess, you play White against a built-in practice opponent by default.
 Use the panel's difficulty control to choose Easy, Medium, or Hard; the

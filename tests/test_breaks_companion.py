@@ -49,21 +49,18 @@ class BreaksCompanionTests(unittest.TestCase):
             Path(self.temporary_directory.name) / "video.json", catalog=_CATALOG
         )
         self.opened_urls: list[str] = []
-        self.close_count = 0
+        self.navigate_calls: list[tuple[str, int, int]] = []
         self.companion = BreaksCompanion(
             chess_game,
             video_queue,
             browser_open=self.opened_urls.append,
-            browser_close=self._record_close,
+            browser_navigate=lambda url, w, h: self.navigate_calls.append((url, w, h)),
         )
 
     def tearDown(self) -> None:
         self.companion.close()
         self.temporary_directory.cleanup()
         self.shuffle_patcher.stop()
-
-    def _record_close(self) -> None:
-        self.close_count += 1
 
     def _url(self, path: str) -> str:
         return self.companion.play_url.replace("/?", f"{path}?")
@@ -77,6 +74,7 @@ class BreaksCompanionTests(unittest.TestCase):
     def test_neither_toggled_still_opens_a_window(self) -> None:
         self.companion.show()
         self.assertEqual(self.opened_urls, [self.companion.play_url])
+        self.assertEqual(self.navigate_calls, [(self.companion.play_url, 340, 480)])
         self.assertEqual(self._state()["mode"], "off")
 
     def test_toggle_endpoint_flips_state(self) -> None:
@@ -93,11 +91,13 @@ class BreaksCompanionTests(unittest.TestCase):
         _post(self._url("/api/breaks/toggle"), {"mode": "chess", "on": True})
         self.companion.show()
         self.assertEqual(self._state()["mode"], "chess")
+        self.assertEqual(self.navigate_calls, [(self.companion.play_url, 768, 650)])
 
     def test_toggling_video_only_opens_video_mode(self) -> None:
         _post(self._url("/api/breaks/toggle"), {"mode": "video", "on": True})
         self.companion.show()
         self.assertEqual(self._state()["mode"], "video")
+        self.assertEqual(self.navigate_calls, [(self.companion.play_url, 1000, 650)])
 
     def test_both_toggled_picks_randomly_between_them(self) -> None:
         _post(self._url("/api/breaks/toggle"), {"mode": "chess", "on": True})
@@ -179,9 +179,9 @@ class BreaksCompanionTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 400)
         raised.exception.close()
 
-    # -- lifecycle / page serving -------------------------------------------
+    # -- lifecycle / persistence / page serving ----------------------------
 
-    def test_lifecycle_start_and_stop_toggle_visibility(self) -> None:
+    def test_lifecycle_start_flips_active_and_stop_does_not_touch_the_window(self) -> None:
         start = urllib.request.Request(
             self.companion.lifecycle_url("start"), data=b"{}", method="POST"
         )
@@ -190,9 +190,32 @@ class BreaksCompanionTests(unittest.TestCase):
         )
         urllib.request.urlopen(start, timeout=2).close()
         self.assertTrue(self.companion.is_active())
+        self.assertEqual(len(self.navigate_calls), 1)  # opened + navigated once, for "off"
+
         urllib.request.urlopen(stop, timeout=2).close()
         self.assertFalse(self.companion.is_active())
-        self.assertEqual(self.close_count, 1)
+        # hide() no longer collapses the window itself -- the client decides
+        # when to, via /api/breaks/collapse (covered below).
+        self.assertEqual(len(self.opened_urls), 1)
+        self.assertEqual(len(self.navigate_calls), 1)
+
+    def test_collapse_endpoint_navigates_to_off_and_resets_mode(self) -> None:
+        _post(self._url("/api/breaks/toggle"), {"mode": "chess", "on": True})
+        self.companion.show()
+        self.assertEqual(self.navigate_calls[-1], (self.companion.play_url, 768, 650))
+
+        payload = _post(self._url("/api/breaks/collapse"), {})
+        self.assertEqual(payload["mode"], "off")
+        self.assertEqual(self.navigate_calls[-1], (self.companion.play_url, 340, 480))
+
+    def test_window_stays_open_across_repeated_turns(self) -> None:
+        self.companion.show()
+        self.companion.hide()
+        _post(self._url("/api/breaks/toggle"), {"mode": "video", "on": True})
+        self.companion.show()
+        # Only ever opened once, however many turns have happened since.
+        self.assertEqual(self.opened_urls, [self.companion.play_url])
+        self.assertEqual(len(self.navigate_calls), 2)
 
     def test_breaks_state_requires_token(self) -> None:
         with self.assertRaises(urllib.error.HTTPError) as raised:
@@ -240,8 +263,8 @@ class BreaksCompanionTests(unittest.TestCase):
                 self.assertTrue(response.read(20))
 
 
-class BreaksCompanionWindowSizingTests(unittest.TestCase):
-    """Real (uninjected) window path -- verifies the per-mode window sizes."""
+class BreaksCompanionRealWindowTests(unittest.TestCase):
+    """Real (uninjected) window path -- verifies open-once + per-mode navigate."""
 
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
@@ -261,31 +284,38 @@ class BreaksCompanionWindowSizingTests(unittest.TestCase):
         url = self.companion.play_url.replace("/?", "/api/breaks/toggle?")
         _post(url, {"mode": mode, "on": on})
 
-    def test_off_mode_opens_a_small_window(self) -> None:
+    def test_window_is_constructed_and_opened_exactly_once(self) -> None:
         with patch("sidequest.breaks.companion.CompanionWindow") as window_type:
-            self.companion.show()
-        window_type.assert_called_once_with(width=340, height=480)
+            self.companion.show()  # off
+            self._toggle("chess", True)
+            self.companion.hide()
+            self.companion.show()  # chess
+
+        window_type.assert_called_once_with()
         window_type.return_value.open.assert_called_once_with(self.companion.play_url)
 
-    def test_chess_mode_opens_the_chess_sized_window(self) -> None:
-        self._toggle("chess", True)
+    def test_navigate_is_called_with_the_right_size_per_mode(self) -> None:
         with patch("sidequest.breaks.companion.CompanionWindow") as window_type:
-            self.companion.show()
-        window_type.assert_called_once_with(width=768, height=650)
-
-    def test_video_mode_opens_the_video_sized_window(self) -> None:
-        self._toggle("video", True)
-        with patch("sidequest.breaks.companion.CompanionWindow") as window_type:
-            self.companion.show()
-        window_type.assert_called_once_with(width=1000, height=650)
-
-    def test_window_is_reused_across_turns_for_the_same_mode(self) -> None:
-        with patch("sidequest.breaks.companion.CompanionWindow") as window_type:
-            self.companion.show()
+            self.companion.show()  # off
+            self._toggle("chess", True)
             self.companion.hide()
+            self.companion.show()  # chess
+            self._toggle("chess", False)
+            self._toggle("video", True)
+            self.companion.hide()
+            self.companion.show()  # video
+
+        navigate = window_type.return_value.navigate
+        self.assertEqual(
+            [call.args[1:] for call in navigate.call_args_list],
+            [(340, 480), (768, 650), (1000, 650)],
+        )
+
+    def test_close_tears_down_the_real_window(self) -> None:
+        with patch("sidequest.breaks.companion.CompanionWindow") as window_type:
             self.companion.show()
-        window_type.assert_called_once_with(width=340, height=480)
-        self.assertEqual(window_type.return_value.open.call_count, 2)
+            self.companion.close()
+        window_type.return_value.close.assert_called_once_with()
 
 
 if __name__ == "__main__":

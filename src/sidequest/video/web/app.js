@@ -121,10 +121,22 @@ async function pollActive() {
       savePosition();
       if (player) player.pauseVideo();
       finished.hidden = false;
-      window.setTimeout(() => window.close(), 350);
+      window.setTimeout(collapseWindow, 350);
     }
   } catch (error) {
     // Transient network hiccups shouldn't spam the UI; the next poll retries.
+  }
+}
+
+async function collapseWindow() {
+  // The window persists across turns (see BreaksCompanion) -- this asks the
+  // server to shrink it back to the toggle panel in place, rather than
+  // closing it the way earlier versions did.
+  try {
+    await fetch(`/api/breaks/collapse?token=${encodeURIComponent(token)}`, {method: "POST"});
+  } catch (error) {
+    // Best-effort -- the next turn's navigate() puts the window back in the
+    // right place regardless.
   }
 }
 
@@ -133,7 +145,7 @@ async function closeVideoWindow() {
   try {
     await request("/lifecycle/stop", {});
   } finally {
-    window.close();
+    collapseWindow();
   }
 }
 
@@ -145,7 +157,7 @@ window.onYouTubeIframeAPIReady = function onYouTubeIframeAPIReady() {
 document.querySelector("#next").addEventListener("click", nextVideo);
 prevButton.addEventListener("click", previousVideo);
 document.querySelector("#return").addEventListener("click", closeVideoWindow);
-document.querySelector("#close-window").addEventListener("click", () => window.close());
+document.querySelector("#close-window").addEventListener("click", collapseWindow);
 
 (async function init() {
   try {
