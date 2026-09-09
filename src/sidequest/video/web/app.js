@@ -28,7 +28,7 @@ async function request(path, payload) {
 }
 
 async function fetchState() {
-  const response = await fetch(`/api/state?token=${encodeURIComponent(token)}`, {cache: "no-store"});
+  const response = await fetch(`/api/video/state?token=${encodeURIComponent(token)}`, {cache: "no-store"});
   if (!response.ok) throw new Error("Unable to read queue state");
   return response.json();
 }
@@ -83,12 +83,12 @@ function onPlayerStateChange(event) {
 }
 
 async function nextVideo() {
-  await advance("/api/skip");
+  await advance("/api/video/skip");
 }
 
 async function previousVideo() {
   if (!state.can_go_back) return;
-  await advance("/api/previous");
+  await advance("/api/video/previous");
 }
 
 async function advance(path) {
@@ -105,7 +105,7 @@ async function advance(path) {
 
 function savePosition() {
   if (!player || typeof player.getCurrentTime !== "function") return;
-  request("/api/position", {position_s: player.getCurrentTime()}).catch(() => {});
+  request("/api/video/position", {position_s: player.getCurrentTime()}).catch(() => {});
 }
 
 async function pollActive() {

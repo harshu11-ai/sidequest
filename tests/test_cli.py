@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch, sentinel
 
 from sidequest.autocorrect.config import UserConfiguration
-from sidequest.cli import _ROOM_CODE_DISPLAY_SECONDS, _run_doctor, _start_multiplayer, main
+from sidequest.cli import _run_doctor, main
 from sidequest.updater import UpdateError, UpdateResult
 
 
@@ -51,15 +51,13 @@ class CliTests(unittest.TestCase):
 
     @patch("sidequest.lifecycle.prepare_agent_command", return_value=["codex", "prepared"])
     @patch("sidequest.lifecycle.AgentLifecycle")
-    @patch("sidequest.chess.companion.ChessCompanion")
-    @patch("sidequest.chess.game.ComputerChessGame")
+    @patch("sidequest.breaks.companion.BreaksCompanion")
     @patch("sidequest.cli.run_in_pty", return_value=0)
     @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
-    def test_chess_prepares_lifecycle_and_closes_companion(
+    def test_breaks_prepares_lifecycle_and_closes_companion(
         self,
         _which,
         run_in_pty,
-        game_type,
         companion_type,
         lifecycle_type,
         prepare_command,
@@ -67,11 +65,10 @@ class CliTests(unittest.TestCase):
         companion = companion_type.return_value
         lifecycle = lifecycle_type.return_value
 
-        result = main(["--chess", "codex"])
+        result = main(["--breaks", "codex"])
 
         self.assertEqual(result, 0)
-        game_type.assert_called_once_with(stockfish_path=None)
-        companion_type.assert_called_once_with(game_type.return_value, multiplayer=None)
+        companion_type.assert_called_once_with()
         lifecycle_type.assert_called_once_with(companion, watch_codex_input=True)
         prepare_command.assert_called_once_with(["codex"], "codex", companion)
         run_in_pty.assert_called_once_with(
@@ -82,107 +79,6 @@ class CliTests(unittest.TestCase):
             on_child_output=lifecycle.child_output,
         )
         companion.close.assert_called_once_with()
-
-    @patch("sidequest.lifecycle.prepare_agent_command", return_value=["codex", "prepared"])
-    @patch("sidequest.lifecycle.AgentLifecycle")
-    @patch("sidequest.video.companion.VideoCompanion")
-    @patch("sidequest.video.queue.VideoQueue")
-    @patch("sidequest.cli.run_in_pty", return_value=0)
-    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
-    def test_videos_prepares_lifecycle_and_closes_companion(
-        self,
-        _which,
-        run_in_pty,
-        queue_type,
-        companion_type,
-        lifecycle_type,
-        prepare_command,
-    ) -> None:
-        companion = companion_type.return_value
-        lifecycle = lifecycle_type.return_value
-
-        result = main(["--videos", "codex"])
-
-        self.assertEqual(result, 0)
-        companion_type.assert_called_once_with(queue_type.return_value)
-        lifecycle_type.assert_called_once_with(companion, watch_codex_input=True)
-        prepare_command.assert_called_once_with(["codex"], "codex", companion)
-        run_in_pty.assert_called_once_with(
-            ["codex", "prepared"],
-            corrections=True,
-            corrector=unittest.mock.ANY,
-            on_user_input=lifecycle.user_input,
-            on_child_output=lifecycle.child_output,
-        )
-        companion.close.assert_called_once_with()
-
-    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
-    def test_chess_and_videos_cannot_be_combined(self, _which) -> None:
-        stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
-            main(["--chess", "--videos", "codex"])
-        self.assertEqual(raised.exception.code, 2)
-        self.assertIn("--chess and --videos cannot be combined", stderr.getvalue())
-
-    @patch("sidequest.video.queue.VideoQueue")
-    @patch("sidequest.video.companion.VideoCompanion")
-    @patch("sidequest.cli.run_in_pty", return_value=0)
-    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
-    def test_videos_profile_scopes_the_state_path(
-        self, _which, _run_in_pty, _companion_type, queue_type
-    ) -> None:
-        main(["--videos", "--profile", "p1", "codex"])
-        state_path = queue_type.call_args.args[0]
-        self.assertEqual(state_path.name, "video-p1.json")
-
-    @patch("sidequest.cli.time.sleep")
-    @patch("sidequest.chess.multiplayer.RemoteChessGame")
-    def test_hosting_pauses_to_show_the_room_code(self, game_type, sleep) -> None:
-        game_type.return_value.room_code = "ABC123"
-
-        stdout = io.StringIO()
-        with contextlib.redirect_stdout(stdout):
-            result = _start_multiplayer(None, None, None)
-
-        self.assertIs(result, game_type.return_value)
-        self.assertIn("ABC123", stdout.getvalue())
-        sleep.assert_called_once_with(_ROOM_CODE_DISPLAY_SECONDS)
-
-    @patch("sidequest.cli.time.sleep")
-    @patch("sidequest.chess.multiplayer.RemoteChessGame")
-    def test_joining_does_not_pause(self, _game_type, sleep) -> None:
-        stdout = io.StringIO()
-        with contextlib.redirect_stdout(stdout):
-            _start_multiplayer("ABC123", None, None)
-
-        self.assertIn("Joined room", stdout.getvalue())
-        sleep.assert_not_called()
-
-    @patch("sidequest.cli.time.sleep")
-    @patch("sidequest.chess.multiplayer.RemoteChessGame")
-    def test_profile_scopes_the_local_seat_path(self, game_type, _sleep) -> None:
-        stdout = io.StringIO()
-        with contextlib.redirect_stdout(stdout):
-            _start_multiplayer(None, None, "p1")
-
-        state_path = game_type.call_args.args[1]
-        self.assertEqual(state_path.name, "multiplayer-p1.json")
-
-    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
-    def test_profile_requires_multiplayer_join_or_videos(self, _which) -> None:
-        stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
-            main(["--chess", "--profile", "p1", "codex"])
-        self.assertEqual(raised.exception.code, 2)
-        self.assertIn("--profile requires --multiplayer, --join, or --videos", stderr.getvalue())
-
-    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
-    def test_rejects_multiplayer_flag_placed_after_application_name(self, _which) -> None:
-        stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
-            main(["--chess", "codex", "--multiplayer"])
-        self.assertEqual(raised.exception.code, 2)
-        self.assertIn("must come before the application name", stderr.getvalue())
 
     @patch("sidequest.cli.run_in_pty")
     @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/codex")
@@ -247,6 +143,13 @@ class CliTests(unittest.TestCase):
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
             main(["--no-corrections", "update"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("cannot be combined with wrapper options", stderr.getvalue())
+
+    def test_rejects_update_with_breaks(self) -> None:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            main(["--breaks", "update"])
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("cannot be combined with wrapper options", stderr.getvalue())
 

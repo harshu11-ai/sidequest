@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#181a19">
+    <title>Sidequest Breaks</title>
+    <link rel="stylesheet" href="/breaks/panel.css">
+  </head>
+  <body>
+    <main>
+      <header class="app-header">
+        <div class="brand">
+          <svg class="brand-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 5 6 7-6 7M13 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          <span>sidequest</span><span class="brand-divider">/</span><h1>Breaks</h1>
+        </div>
+        <div class="agent-status"><span class="status-dot status-dot--online" id="agent-dot"></span><span id="agent-status">Connected</span></div>
+      </header>
+
+      <div class="toggle-panel-body">
+        <div class="session-heading">
+          <span class="eyebrow">Next prompt</span>
+          <span id="breaks-mode-label" class="mode-label">OFF</span>
+        </div>
+
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <span class="toggle-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" fill="currentColor" opacity=".9"/><rect x="11" y="3" width="6" height="6" fill="currentColor" opacity=".35"/><rect x="3" y="11" width="6" height="6" fill="currentColor" opacity=".35"/><rect x="11" y="11" width="6" height="6" fill="currentColor" opacity=".9"/></svg>
+            </span>
+            <span class="toggle-text">
+              <span class="toggle-label">Chess</span>
+              <span class="toggle-sub">Solo practice, while you wait</span>
+            </span>
+            <button class="expand-btn" type="button" id="chess-expand" aria-expanded="false" aria-label="Chess settings">
+              <svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 4.5 6 8l3-3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <label class="switch"><input type="checkbox" data-toggle="chess"><span class="switch-track"><span class="switch-thumb"></span></span></label>
+          </div>
+
+          <div id="chess-settings" class="settings-block" hidden>
+            <div class="field-row">
+              <label for="breaks-difficulty">Difficulty</label>
+              <select id="breaks-difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label for="breaks-stockfish-path">Stockfish path</label>
+              <input id="breaks-stockfish-path" type="text" placeholder="optional — falls back to the built-in engine" />
+            </div>
+            <p class="settings-note">Both lock once your first move is made.</p>
+          </div>
+
+          <div class="toggle-row">
+            <span class="toggle-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="2.5" y="4" width="15" height="12" rx="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8.5 7.5 13 10l-4.5 2.5v-5Z" fill="currentColor"/></svg>
+            </span>
+            <span class="toggle-text">
+              <span class="toggle-label">Video</span>
+              <span class="toggle-sub">A queue of science &amp; math</span>
+            </span>
+            <button class="expand-btn" type="button" id="video-expand" aria-expanded="false" aria-label="Video settings">
+              <svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 4.5 6 8l3-3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <label class="switch"><input type="checkbox" data-toggle="video"><span class="switch-track"><span class="switch-thumb"></span></span></label>
+          </div>
+
+          <div id="video-settings" class="settings-block" hidden>
+            <p class="settings-note">Streams from YouTube — needs a network connection. Your queue position is saved locally either way.</p>
+          </div>
+
+          <div id="random-note" class="random-note" hidden>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h4l7 12h4M17 3l3 3-3 3M3 18h4l3-5.2M17 21l3-3-3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <p>Both are on — one gets picked at random each time you send a prompt.</p>
+          </div>
+        </div>
+
+        <p id="breaks-message" class="settings-note" role="status" aria-live="polite"></p>
+      </div>
+
+      <footer>
+        <span id="footer-note">Nothing's on — your agent runs straight through.</span>
+        <span class="footer-detail">SIDEQUEST <span aria-hidden="true">/</span> BREAKS</span>
+      </footer>
+    </main>
+    <script src="/breaks/panel.js"></script>
+  </body>
+</html>

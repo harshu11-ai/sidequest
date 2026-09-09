@@ -6,7 +6,6 @@ import argparse
 import platform
 import shutil
 import sys
-import time
 
 from sidequest import __version__
 from sidequest.autocorrect.config import ConfigurationError, UserConfiguration, load_configuration
@@ -15,21 +14,12 @@ from sidequest.pty_proxy import TerminalRequiredError, run_in_pty
 from sidequest.updater import UpdateError, update_with_pipx
 
 SUPPORTED_APPS = {"claude", "codex"}
-# Flags unique enough to sidequest that seeing them after the application name
-# almost certainly means the user meant them for sidequest, not the app --
-# `command` uses argparse.REMAINDER, which swallows everything after the
-# application name literally, flags included, to forward it through unchanged.
-_MULTIPLAYER_FLAG_TOKENS = {"--multiplayer", "--join", "--relay-url", "--profile"}
-# How long to hold the terminal open showing a freshly hosted room code before
-# handing off to the agent, which otherwise redraws the screen almost
-# immediately and scrolls the code away before it can be read or copied.
-_ROOM_CODE_DISPLAY_SECONDS = 8
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sidequest",
-        description="Run Claude Code or Codex with prompt autocorrect and wait-time games.",
+        description="Run Claude Code or Codex with prompt autocorrect and wait-time breaks.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
@@ -43,43 +33,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="load personal corrections and abbreviations from PATH",
     )
     parser.add_argument(
-        "--chess",
+        "--breaks",
         action="store_true",
-        help="open a resumable local chess game while the agent is working",
-    )
-    parser.add_argument(
-        "--videos",
-        action="store_true",
-        help="open a resumable queue of educational videos while the agent is working",
-    )
-    parser.add_argument(
-        "--stockfish",
-        metavar="PATH",
-        help="use a specific Stockfish executable for --chess",
-    )
-    parser.add_argument(
-        "--multiplayer",
-        action="store_true",
-        help="host a new multiplayer chess game over the relay and print a code to share. "
-        "Requires --chess.",
-    )
-    parser.add_argument(
-        "--join",
-        metavar="CODE",
-        help="join a multiplayer chess game using a code you were given. Requires --chess.",
-    )
-    parser.add_argument(
-        "--relay-url",
-        metavar="URL",
-        help="multiplayer relay to use with --multiplayer/--join (defaults to the built-in relay)",
-    )
-    parser.add_argument(
-        "--profile",
-        metavar="NAME",
-        help="keep this room's seat separate from other sidequest sessions on this machine. "
-        "Only needed when running more than one --multiplayer/--join session on the same "
-        "machine (e.g. testing both sides of a game yourself) -- real opponents on their own "
-        "machines never need this.",
+        help="open a small control panel for resumable chess/video breaks while the "
+        "agent is working -- chess, video, both, or neither, toggled live from the panel",
     )
     parser.add_argument(
         "--doctor",
@@ -111,17 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     if command and command[0] == "update":
         if len(command) != 1:
             parser.error("'update' does not accept additional arguments")
-        if (
-            arguments.no_corrections
-            or arguments.config is not None
-            or arguments.chess
-            or arguments.videos
-            or arguments.stockfish is not None
-            or arguments.multiplayer
-            or arguments.join is not None
-            or arguments.relay_url is not None
-            or arguments.profile is not None
-        ):
+        if arguments.no_corrections or arguments.config is not None or arguments.breaks:
             parser.error("'update' cannot be combined with wrapper options")
         return _run_update()
 
@@ -133,28 +80,6 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("the prototype currently supports only 'claude' and 'codex'")
     if shutil.which(application) is None:
         parser.error(f"could not find '{application}' on PATH")
-    if arguments.chess and arguments.videos:
-        parser.error("--chess and --videos cannot be combined")
-    if arguments.stockfish is not None and not arguments.chess:
-        parser.error("--stockfish requires --chess")
-    if arguments.stockfish is not None and shutil.which(arguments.stockfish) is None:
-        parser.error(f"could not find Stockfish executable: {arguments.stockfish}")
-    if arguments.multiplayer and arguments.join is not None:
-        parser.error("--multiplayer and --join cannot be combined")
-    multiplayer_requested = arguments.multiplayer or arguments.join is not None
-    if multiplayer_requested and not arguments.chess:
-        parser.error("--multiplayer/--join requires --chess")
-    if arguments.relay_url is not None and not multiplayer_requested:
-        parser.error("--relay-url requires --multiplayer or --join")
-    if arguments.profile is not None and not multiplayer_requested and not arguments.videos:
-        parser.error("--profile requires --multiplayer, --join, or --videos")
-    if any(token in _MULTIPLAYER_FLAG_TOKENS for token in command[1:]):
-        parser.error(
-            "--multiplayer/--join/--relay-url must come before the application name "
-            f"(e.g. 'sidequest --chess --multiplayer {application}', not "
-            f"'sidequest --chess {application} --multiplayer') -- anything after the "
-            "application name is passed through to it as-is"
-        )
 
     corrector = None
     if not arguments.no_corrections:
@@ -170,44 +95,12 @@ def main(argv: list[str] | None = None) -> int:
     companion = None
     lifecycle = None
     try:
-        if arguments.chess:
-            from sidequest.chess.companion import ChessCompanion
-            from sidequest.chess.game import ComputerChessGame
+        if arguments.breaks:
+            from sidequest.breaks.companion import BreaksCompanion
             from sidequest.lifecycle import AgentLifecycle, prepare_agent_command
 
-            multiplayer_game = None
-            if multiplayer_requested:
-                multiplayer_game = _start_multiplayer(
-                    arguments.join, arguments.relay_url, arguments.profile
-                )
-                if multiplayer_game is None:
-                    return 1
-
-            companion = ChessCompanion(
-                ComputerChessGame(stockfish_path=arguments.stockfish),
-                multiplayer=multiplayer_game,
-            )
-            lifecycle = AgentLifecycle(
-                companion,
-                watch_codex_input=application == "codex",
-            )
-            command = prepare_agent_command(command, application, companion)
-        elif arguments.videos:
-            from sidequest.lifecycle import AgentLifecycle, prepare_agent_command
-            from sidequest.video.companion import VideoCompanion
-            from sidequest.video.queue import VideoQueue, default_video_state_path
-
-            state_path = None
-            if arguments.profile is not None:
-                state_path = default_video_state_path().with_name(
-                    f"video-{arguments.profile}.json"
-                )
-
-            companion = VideoCompanion(VideoQueue(state_path))
-            lifecycle = AgentLifecycle(
-                companion,
-                watch_codex_input=application == "codex",
-            )
+            companion = BreaksCompanion()
+            lifecycle = AgentLifecycle(companion, watch_codex_input=application == "codex")
             command = prepare_agent_command(command, application, companion)
 
         return run_in_pty(
@@ -228,33 +121,6 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if companion is not None:
             companion.close()
-
-
-def _start_multiplayer(code: str | None, relay_url: str | None, profile: str | None):
-    from sidequest.chess.multiplayer import (
-        MultiplayerError,
-        RemoteChessGame,
-        default_multiplayer_state_path,
-    )
-    from sidequest.chess.relay_client import DEFAULT_RELAY_URL, RelayClient, RelayError
-
-    relay = RelayClient(relay_url or DEFAULT_RELAY_URL)
-    state_path = None
-    if profile is not None:
-        default_path = default_multiplayer_state_path()
-        state_path = default_path.with_name(f"multiplayer-{profile}.json")
-    try:
-        game = RemoteChessGame(relay, state_path, code=code)
-    except (RelayError, MultiplayerError) as error:
-        print(f"sidequest: multiplayer setup failed: {error}", file=sys.stderr)
-        return None
-    if code is None:
-        print(f"Share this code with your opponent: {game.room_code}")
-        print(f"(starting in {_ROOM_CODE_DISPLAY_SECONDS}s...)")
-        time.sleep(_ROOM_CODE_DISPLAY_SECONDS)
-    else:
-        print(f"Joined room {game.room_code}.")
-    return game
 
 
 def _load_configuration(path: str | None) -> UserConfiguration | None:
