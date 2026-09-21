@@ -6,7 +6,7 @@ import urllib.request
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from sidequest.breaks.companion import BreaksCompanion
+from sidequest.breaks.companion import BreaksCompanion, _is_slash_command
 from sidequest.chess.game import ComputerChessGame
 from sidequest.chess.multiplayer import MultiplayerError, MultiplayerSnapshot
 from sidequest.video.queue import VideoQueue
@@ -214,6 +214,79 @@ class BreaksCompanionTests(unittest.TestCase):
             self.companion.lifecycle_url("start"),
             {"hook_event_name": "PostToolUse", "prompt": "/deploy"},
         )
+        self.assertTrue(self.companion.is_active())
+
+    def _start(self, body: bytes) -> None:
+        request = urllib.request.Request(
+            self.companion.lifecycle_url("start"),
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(request, timeout=2).close()
+
+    def test_slash_detection_only_looks_at_user_prompt_submit_text(self) -> None:
+        submit = "UserPromptSubmit"
+        for prompt in ("/", "/help", "  /model opus", "\n/compact", "\t/x"):
+            with self.subTest(prompt=prompt):
+                self.assertTrue(_is_slash_command({"hook_event_name": submit, "prompt": prompt}))
+        for payload in (
+            {"hook_event_name": submit, "prompt": "fix /etc/hosts"},
+            {"hook_event_name": submit, "prompt": ""},
+            {"hook_event_name": submit, "prompt": None},
+            {"hook_event_name": submit, "prompt": 7},
+            {"hook_event_name": submit},
+            {"hook_event_name": "PostToolUse", "prompt": "/deploy"},
+            {"prompt": "/help"},
+            {},
+        ):
+            with self.subTest(payload=payload):
+                self.assertFalse(_is_slash_command(payload))
+
+    def test_lifecycle_start_opens_when_the_hook_body_is_unreadable(self) -> None:
+        # Fail open: an odd body must never cost the user their break.
+        for body in (b"not json at all", b"[1, 2, 3]", b'"/help"', b"", b"\xff\xfe"):
+            with self.subTest(body=body):
+                self.companion.hide()
+                self._start(body)
+                self.assertTrue(self.companion.is_active())
+
+    def test_lifecycle_start_skips_a_slash_prompt_even_with_a_large_body(self) -> None:
+        # Hook bodies carry the whole session context, well over the 4 KB the
+        # regular API accepts.
+        padding = "x" * 20_000
+        body = json.dumps(
+            {"hook_event_name": "UserPromptSubmit", "prompt": "/help", "transcript": padding}
+        ).encode()
+        self._start(body)
+        self.assertFalse(self.companion.is_active())
+
+    def test_lifecycle_start_opens_when_the_body_is_absurdly_large(self) -> None:
+        body = json.dumps(
+            {"hook_event_name": "UserPromptSubmit", "prompt": "/help", "pad": "x" * 200_000}
+        ).encode()
+        self._start(body)
+        self.assertTrue(self.companion.is_active())
+
+    def test_two_prompts_back_to_back_each_open_a_fresh_break(self) -> None:
+        submit = json.dumps({"hook_event_name": "UserPromptSubmit", "prompt": "fix it"}).encode()
+        stop = urllib.request.Request(
+            self.companion.lifecycle_url("stop"), data=b"{}", method="POST"
+        )
+        for _ in range(3):
+            self._start(submit)
+            self.assertTrue(self.companion.is_active())
+            self._start(submit)  # a second start mid-turn is a no-op
+            self.assertTrue(self.companion.is_active())
+            urllib.request.urlopen(stop, timeout=2).close()
+            self.assertFalse(self.companion.is_active())
+
+    def test_tool_use_start_after_a_slash_prompt_still_opens_the_break(self) -> None:
+        # /some-skill that goes on to run tools is real agent work.
+        slash = {"hook_event_name": "UserPromptSubmit", "prompt": "/deploy"}
+        self._start(json.dumps(slash).encode())
+        self.assertFalse(self.companion.is_active())
+        self._start(json.dumps({"hook_event_name": "PostToolUse", "tool_name": "Bash"}).encode())
         self.assertTrue(self.companion.is_active())
 
     def test_idle_panel_is_only_opened_once_across_repeated_turns(self) -> None:
