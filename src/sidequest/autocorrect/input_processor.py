@@ -369,3 +369,9 @@ class InputProcessor:
         if bytes(candidate) == BRACKETED_PASTE_END:
             self.in_paste = False
             candidate.clear()
+            # Unlike an unknown escape sequence, a completed paste leaves the
+            # cursor at a known position (right after the inserted text) and
+            # the token buffer was never fed any pasted bytes, so nothing
+            # pasted can ever be backspaced into. It's safe to resume
+            # correcting whatever gets typed next, in the same line.
+            self.safe_to_correct = True

@@ -176,8 +176,19 @@ class InputProcessorTests(unittest.TestCase):
         processor = InputProcessor()
         pasted = BRACKETED_PASTE_START + b"teh fucntion" + BRACKETED_PASTE_END
         self.assertEqual(processor.feed(pasted), pasted)
-        self.assertEqual(processor.feed(b" more teh "), b" more teh ")
         self.assertEqual(processor.feed(b"\nteh "), b"\nteh\x7f\x7f\x7fthe ")
+
+    def test_correction_resumes_for_typing_after_a_paste_completes(self) -> None:
+        # A paste ends at a known cursor position with nothing pasted ever
+        # tracked in the token buffer, so typing the rest of the same line
+        # (e.g. finishing a prompt after pasting an image placeholder)
+        # should keep getting corrected rather than waiting for Enter.
+        processor = InputProcessor()
+        pasted = BRACKETED_PASTE_START + b"[Image #1]" + BRACKETED_PASTE_END
+        self.assertEqual(processor.feed(pasted), pasted)
+        self.assertEqual(
+            processor.feed(b" fix teh function "), b" fix teh\x7f\x7f\x7fthe function "
+        )
 
     def test_ctrl_c_resets_safe_typing_state(self) -> None:
         processor = InputProcessor()
