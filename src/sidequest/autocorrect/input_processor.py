@@ -126,6 +126,10 @@ class InputProcessor:
         self.last_correction = None
 
     def _handle_boundary(self, boundary: int, output: bytearray) -> None:
+        if boundary in RESET_BYTES:
+            # Enter starts a fresh line, so a pending "resume at the next
+            # space" from an earlier Tab must not swallow that line's first word.
+            self._resume_after_word = False
         if self._resume_after_word and boundary == 0x20:
             self._resume_after_word = False
             self.safe_to_correct = True
