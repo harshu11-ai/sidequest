@@ -352,6 +352,13 @@ def run_processed(
     return child.lines(), processor, sent
 
 
+# ESC not followed by [ O ] P _ ^ X is a legacy Meta key (Alt+b, Alt+Enter, ...).
+# A terminal writes it in one piece, and an ESC that ends a read is read as the
+# Esc key, so splitting one of these across reads describes a different
+# keystroke. Scripts containing them are only meaningful in a single read.
+_LEGACY_META = re.compile(rb"\x1b(?![\[O\]P_^X])")
+
+
 def one_byte_at_a_time(data: bytes) -> list[bytes]:
     return [bytes([byte]) for byte in data]
 
@@ -394,14 +401,14 @@ class ScenarioCase(unittest.TestCase):
 
     def assert_safe_however_chunked(self, data: bytes, **editor: object) -> list[str]:
         """Same script, whole and split up: safe, and chunking must not matter."""
-        results = []
-        for chunks in (
-            [data],
-            one_byte_at_a_time(data),
-            random_split(data, 1),
-            random_split(data, 2),
-        ):
-            results.append(self.assert_safe(chunks, **editor))
+        variants = [[data]]
+        if not _LEGACY_META.search(data):
+            variants += [
+                one_byte_at_a_time(data),
+                random_split(data, 1),
+                random_split(data, 2),
+            ]
+        results = [self.assert_safe(chunks, **editor) for chunks in variants]
         for other in results[1:]:
             self.assertEqual(results[0], other, f"chunking changed the result for {data!r}")
         return results[0]
@@ -410,7 +417,7 @@ class ScenarioCase(unittest.TestCase):
         """After `before`, a later typo (adn) is still corrected to `and`."""
         data = before + b" adn "
         variants = [[data]]
-        if splits:
+        if splits and not _LEGACY_META.search(data):
             variants += [one_byte_at_a_time(data), random_split(data, 7)]
         for chunks in variants:
             out = self.assert_safe(chunks, **editor)
@@ -677,19 +684,16 @@ class TerminalRepliesTests(ScenarioCase):
             with self.subTest(event=name):
                 self.assert_transparent(event)
 
-    @known_bug("DECRPM replies (CSI ... $ y) switch correction off for the rest of the line")
     def test_decrpm_replies_never_interrupt_correction(self) -> None:
         for name, event in DECRPM_REPLIES.items():
             with self.subTest(event=name):
                 self.assert_transparent(event)
 
-    @known_bug("DCS / APC string replies switch correction off for the rest of the line")
     def test_dcs_and_apc_replies_never_interrupt_correction(self) -> None:
         for name, event in STRING_REPLIES.items():
             with self.subTest(event=name):
                 self.assert_transparent(event)
 
-    @known_bug("mouse wheel and button-release reports switch correction off for the line")
     def test_mouse_wheel_and_release_never_interrupt_correction(self) -> None:
         for name, event in MOUSE_WHEEL_AND_RELEASE.items():
             with self.subTest(event=name):
@@ -707,7 +711,6 @@ class TerminalRepliesTests(ScenarioCase):
         )
         self.assert_recovers(startup + b"fix teh")
 
-    @known_bug("a DECRPM/DCS startup reply costs the first prompt all of its correction")
     def test_terminal_queries_answered_at_startup_do_not_cost_the_first_prompt(self) -> None:
         startup = (
             DECRPM_REPLIES["DECRPM synchronized output"]
@@ -738,13 +741,11 @@ class CursorMovementTests(ScenarioCase):
         out = self.assert_safe([b"fix ", b"\x1b[D", b"adn "])
         self.assertEqual(out, ["fixadn  "])
 
-    @known_bug("Home/End-style keys with nothing in flight still suspend correction for the line")
     def test_home_and_end_keys_keep_correction_alive(self) -> None:
         for name, key in HOME_END.items():
             with self.subTest(key=name):
                 self.assert_recovers(b"fix " + key)
 
-    @known_bug("word-jump keys (Ctrl/Alt+arrows, Alt+b/f) still suspend correction for the line")
     def test_word_jump_keys_keep_correction_alive(self) -> None:
         for name, key in WORD_JUMPS.items():
             with self.subTest(key=name):
@@ -759,13 +760,11 @@ class MultilineInputTests(ScenarioCase):
             with self.subTest(key=name):
                 self.assert_recovers(b"fix teh" + key)
 
-    @known_bug("Shift+Enter / Alt+Enter leave correction off for the rest of a multi-line prompt")
     def test_shift_enter_and_alt_enter_start_a_correctable_line(self) -> None:
         for name, key in NEWLINE_KEYS_MISSED.items():
             with self.subTest(key=name):
                 self.assert_recovers(b"fix teh" + key)
 
-    @known_bug("a kitty-encoded plain Enter does not reset the line, so it never recovers")
     def test_kitty_encoded_enter_resets_the_line(self) -> None:
         # Only in terminals running the kitty protocol's "report all keys" mode.
         self.assert_recovers(b"fix \x1bq" + b"\x1b[13u")
@@ -781,19 +780,16 @@ class EscapeKeyTests(ScenarioCase):
     def test_kitty_encoded_escape_is_harmless(self) -> None:
         self.assert_recovers(b"fix teh\x1b[27u")
 
-    @known_bug("a bare Esc swallows the next typed character and suspends the whole line")
     def test_bare_escape_between_words(self) -> None:
         chunks = [b"fix ", b"\x1b", b"adn "]
         out = self.assert_safe(chunks, bare_escape_at_read_end=True)
         self.assertEqual(out, ["fix and "])
 
-    @known_bug("a bare Esc swallows the next typed character and suspends the whole line")
     def test_bare_escape_mid_word(self) -> None:
         chunks = [b"fix te", b"\x1b", b"h adn "]
         out = self.assert_safe(chunks, bare_escape_at_read_end=True)
         self.assertIn(" and ", "\n".join(out) + " ")
 
-    @known_bug("a bare Esc swallows the next typed character and suspends the whole line")
     def test_bare_escape_to_interrupt_the_agent_then_next_prompt(self) -> None:
         # Esc to stop a run, then type the follow-up prompt.
         chunks = [b"\x1b", b"adn fix teh "]
@@ -823,7 +819,6 @@ class NonAsciiTests(ScenarioCase):
             with self.subTest(cut=cut):
                 self.assert_safe([b"hi " + emoji[:cut], emoji[cut:] + b" adn "])
 
-    @known_bug("one non-ASCII character (é, —, emoji, ...) turns correction off for the whole line")
     def test_words_after_a_non_ascii_character_are_still_corrected(self) -> None:
         for name, char in NON_ASCII.items():
             with self.subTest(char=name):
@@ -849,18 +844,15 @@ class BackspaceTests(ScenarioCase):
         out = self.assert_safe([b"teh ", b"\x7f", b"\x7f", b"m "])
         self.assertEqual(out, ["tem "])
 
-    @known_bug("backspacing across a word boundary makes the next typed fragment look like a word")
     def test_backspacing_into_the_previous_word_and_typing_on(self) -> None:
         # "x" + space, backspace the space, type "teh": the word is "xteh".
         out = self.assert_safe([b"x ", b"\x7f", b"teh "])
         self.assertEqual(out, ["xteh "])
 
-    @known_bug("backspacing across a word boundary makes the next typed fragment look like a word")
     def test_backspacing_over_several_characters_into_the_previous_word(self) -> None:
         out = self.assert_safe([b"ab cd", b"\x7f\x7f\x7f", b"teh "])
         self.assertEqual(out, ["abteh "])
 
-    @known_bug("backspacing across a word boundary makes the next typed fragment look like a word")
     def test_editing_a_recalled_prompt_into_its_previous_word(self) -> None:
         out = self.assert_safe([b"\x1b[A", b"\x7f\x7f\x7f", b"adn "], recall=["fix it"])
         self.assertEqual(out, ["fixadn "])
@@ -900,15 +892,13 @@ class PasteTests(ScenarioCase):
         out = self.assert_safe_however_chunked(b"te" + PASTE(b"XX") + b"h adn ")
         self.assertEqual(out, ["teXXh and "])
 
-    @known_bug("typing straight after a paste that ends mid-word is judged as a whole word")
     def test_typing_glued_to_the_end_of_a_paste(self) -> None:
         out = self.assert_safe([PASTE(b"path") + b"teh "])
         self.assertEqual(out, ["pathteh "])
 
-    @known_bug("typing straight after a paste that ends mid-word is judged as a whole word")
     def test_typing_glued_to_a_paste_after_a_backspace(self) -> None:
         out = self.assert_safe([PASTE(b"pasted "), b"\x7f", b"teh. "])
-        self.assertEqual(out, ["pastedteh."])
+        self.assertEqual(out, ["pastedteh. "])
 
 
 class TabCompletionTests(ScenarioCase):
@@ -981,8 +971,10 @@ class QueueAndHistoryTests(ScenarioCase):
         self.assertEqual(out, ["fix it and "])
 
     def test_editing_a_recalled_message(self) -> None:
-        out = self.assert_safe([b"\x1b[A", b"\x7f\x7f", b"adn "], recall=["fix it"])
-        self.assertEqual(out, ["fix and "])
+        # Backspace after a recall could be eating into text we never saw, so
+        # the first word typed afterwards is left alone; later words are fine.
+        out = self.assert_safe([b"\x1b[A", b"\x7f\x7f", b"adn teh "], recall=["fix it"])
+        self.assertEqual(out, ["fix adn the "])
 
     def test_legacy_alt_up_pops_the_queue(self) -> None:
         out = self.assert_safe([b"\x1b\x1b[A adn "], recall=["fix it"])
@@ -1035,14 +1027,17 @@ class TypeAheadTests(ScenarioCase):
     def _proxy_writes(processor: InputProcessor, data: bytes) -> list[bytes]:
         """What run_in_pty writes to the child for one read of user input."""
         out = processor.feed(data)
-        split = processor.pending_submit_split
-        return [out] if split is None else [out[:split], out[split:]]
+        writes, start = [], 0
+        for split in processor.pending_submit_splits:
+            writes.append(out[start:split])
+            start = split
+        writes.append(out[start:])
+        return writes
 
     def test_single_correction_before_enter_gets_its_own_write(self) -> None:
         writes = self._proxy_writes(InputProcessor(CORRECTOR), b"fix teh\r")
         self.assertEqual(writes, [b"fix teh\x7f\x7f\x7fthe", b"\r"])
 
-    @known_bug("only the last Enter in a read is split off, so earlier ones look like a paste")
     def test_every_enter_after_a_correction_gets_its_own_write(self) -> None:
         # Otherwise a TUI sees "rewrite + Enter" as one burst and may insert a
         # newline instead of submitting (see pending_submit_split).

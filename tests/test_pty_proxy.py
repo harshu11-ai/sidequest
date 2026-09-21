@@ -147,6 +147,63 @@ raise SystemExit(run_in_pty([sys.executable, "-c", {child_code!r}]))
         self.assertGreaterEqual(chunk_count, 2, f"expected a split write, got one chunk: {line!r}")
         self.assertGreaterEqual(gap, _SUBMIT_SPLIT_DELAY_S * 0.5)
 
+    def test_every_correction_before_enter_is_split_when_prompts_arrive_together(self) -> None:
+        # Two prompts landing in one read: each Enter that follows a rewrite
+        # must be its own write, not just the last one.
+        child_code = """
+import os
+import tty
+
+tty.setraw(0)
+os.write(1, b"CHILD_READY\\n")
+chunks = []
+total = 0
+while total < 20:
+    chunk = os.read(0, 20 - total)
+    chunks.append(chunk.hex())
+    total += len(chunk)
+os.write(1, b"CHUNKS:" + "|".join(chunks).encode("ascii") + b":END\\n")
+"""
+        driver_code = f"""
+import sys
+from sidequest.pty_proxy import run_in_pty
+
+raise SystemExit(run_in_pty([sys.executable, "-c", {child_code!r}]))
+"""
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(ROOT / "src")
+        master_fd, slave_fd = pty.openpty()
+        process = subprocess.Popen(
+            [sys.executable, "-c", driver_code],
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            env=environment,
+            close_fds=True,
+        )
+        os.close(slave_fd)
+
+        transcript = bytearray()
+        try:
+            transcript.extend(self._read_until(master_fd, b"CHILD_READY", process))
+            os.write(master_fd, b"teh\radn\r")
+            transcript.extend(self._read_until(master_fd, b":END", process, timeout=5))
+            self.assertEqual(process.wait(timeout=5), 0)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
+            os.close(master_fd)
+
+        line = bytes(transcript).splitlines()[-1]
+        chunks = line.split(b"CHUNKS:")[1].split(b":END")[0].split(b"|")
+        received = [bytes.fromhex(chunk.decode("ascii")) for chunk in chunks]
+        self.assertEqual(b"".join(received), b"teh\x7f\x7f\x7fthe\radn\x7f\x7f\x7fand\r")
+        for write in received:
+            self.assertNotRegex(
+                write, rb"\x7f+[a-z]+\r", f"rewrite and Enter shared a read: {received!r}"
+            )
+
     @staticmethod
     def _read_until(
         master_fd: int,
