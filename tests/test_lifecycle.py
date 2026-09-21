@@ -46,6 +46,18 @@ class LifecycleTests(unittest.TestCase):
         lifecycle.user_input(b"\r")
         companion.show.assert_not_called()
 
+    def test_codex_slash_commands_do_not_open_companion(self) -> None:
+        companion = Mock()
+        lifecycle = AgentLifecycle(companion, watch_codex_input=True)
+        lifecycle.child_output(b"Ask Codex to do anything")
+
+        lifecycle.user_input(b"/status\r")
+        companion.show.assert_not_called()
+
+        # Editing the "/" away makes it an ordinary prompt again.
+        lifecycle.user_input(b"/x\x7f\x7ffix it\r")
+        companion.show.assert_called_once_with()
+
     def test_claude_input_does_not_use_enter_fallback(self) -> None:
         companion = Mock()
         lifecycle = AgentLifecycle(companion)

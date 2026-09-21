@@ -37,7 +37,7 @@ class AgentLifecycle:
         self._watch_codex_input = watch_codex_input
         self._codex_prompt_ready = False
         self._output_tail = b""
-        self._typed_length = 0
+        self._typed_line = bytearray()
 
     def user_input(self, data: bytes) -> None:
         if not self._watch_codex_input or not self._codex_prompt_ready:
@@ -45,13 +45,15 @@ class AgentLifecycle:
         visible = _ANSI_SEQUENCE.sub(b"", data)
         for byte in visible:
             if byte in (0x0D, 0x0A):
-                if self._typed_length > 0:
+                # A leading "/" is a built-in command (/model, /status, ...),
+                # not a prompt handed to the agent -- nothing to take a break for.
+                if self._typed_line and not self._typed_line.startswith(b"/"):
                     self.companion.show()
-                self._typed_length = 0
+                self._typed_line.clear()
             elif byte in (0x08, 0x7F):
-                self._typed_length = max(0, self._typed_length - 1)
+                del self._typed_line[-1:]
             elif byte >= 0x20:
-                self._typed_length += 1
+                self._typed_line.append(byte)
             # other control bytes (Tab, Ctrl+C, arrow-key remnants, ...) don't
             # count as typed content and don't clear it either.
 

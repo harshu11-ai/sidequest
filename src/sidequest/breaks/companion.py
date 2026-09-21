@@ -20,6 +20,8 @@ from sidequest.chess.relay_client import DEFAULT_RELAY_URL, RelayClient
 from sidequest.video.queue import VideoQueue
 
 _MAX_REQUEST_BYTES = 4096
+# Agent hook bodies carry the whole prompt plus session metadata.
+_MAX_HOOK_BYTES = 64 * 1024
 _MODES = ("chess", "video")
 
 # Sized per mode: a compact settings panel and larger activity windows.
@@ -58,6 +60,14 @@ _VIDEO_CSP = (
     "img-src 'self' https://i.ytimg.com https://yt3.ggpht.com; "
     "frame-ancestors 'none'"
 )
+
+
+def _is_slash_command(hook_payload: dict) -> bool:
+    """True when a UserPromptSubmit hook is for a `/command`, not a real prompt."""
+    if hook_payload.get("hook_event_name") != "UserPromptSubmit":
+        return False
+    prompt = hook_payload.get("prompt")
+    return isinstance(prompt, str) and prompt.lstrip().startswith("/")
 
 
 class BreaksCompanion:
@@ -412,7 +422,8 @@ class BreaksCompanion:
             self._json(handler, HTTPStatus.FORBIDDEN, {"error": "forbidden"})
             return
         if parsed.path == "/lifecycle/start":
-            self.show()
+            if not _is_slash_command(self._read_hook_payload(handler)):
+                self.show()
             self._json(handler, HTTPStatus.OK, {})
             return
         if parsed.path == "/lifecycle/stop":
@@ -456,6 +467,17 @@ class BreaksCompanion:
             self._json(handler, HTTPStatus.BAD_REQUEST, {"error": str(error)})
             return
         self._json(handler, HTTPStatus.OK, response)
+
+    def _read_hook_payload(self, handler: BaseHTTPRequestHandler) -> dict:
+        """Best-effort parse of an agent hook body; anything odd reads as empty."""
+        try:
+            length = int(handler.headers.get("Content-Length", "0"))
+            if not 0 < length <= _MAX_HOOK_BYTES:
+                return {}
+            payload = json.loads(handler.rfile.read(length))
+        except (ValueError, OSError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
 
     def _dispatch_post(self, path: str, payload: dict) -> dict[str, object]:
         if path == "/api/breaks/toggle":
