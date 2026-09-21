@@ -11,6 +11,7 @@ BACKSPACE = 0x7F
 WORD_ERASE_BYTES = {0x08, 0x17}  # Ctrl-H/Ctrl-Backspace, Ctrl-W
 RESET_BYTES = {0x03, 0x04, 0x0A, 0x0D}  # Ctrl-C, Ctrl-D, LF, CR
 BOUNDARY_BYTES = {0x0A, 0x0D, 0x20}  # LF, CR, space
+TAB = 0x09
 BRACKETED_PASTE_START = b"\x1b[200~"
 BRACKETED_PASTE_END = b"\x1b[201~"
 KITTY_SHIFT = 1
@@ -34,6 +35,9 @@ class InputProcessor:
         self.token = bytearray()
         self.safe_to_correct = True
         self.in_paste = False
+        # Set by Tab: the word being completed can't be corrected, but the
+        # next typed space ends it and correction resumes. See _handle_tab.
+        self._resume_after_word = False
         self._escape_candidate = bytearray()
         self._paste_end_candidate = bytearray()
         self.last_correction: AppliedCorrection | None = None
@@ -84,6 +88,11 @@ class InputProcessor:
                 self._handle_boundary(byte, output)
                 continue
 
+            if byte == TAB:
+                output.append(byte)
+                self._handle_tab()
+                continue
+
             if byte < 0x20:
                 output.append(byte)
                 if byte in RESET_BYTES:
@@ -101,7 +110,29 @@ class InputProcessor:
 
         return bytes(output)
 
+    def _handle_tab(self) -> None:
+        """Suspend correction for the word Tab just touched, not the whole line.
+
+        Tab completion inserts text the tracker never saw, so the word it
+        landed in can't be safely backspaced or judged from its typed tail
+        alone. Once a typed space ends that word, the cursor is back at a
+        known position, so correction can resume there -- the same reasoning
+        as resuming after a bracketed paste.
+        """
+        if self.safe_to_correct:
+            self._resume_after_word = True
+        self.safe_to_correct = False
+        self.token.clear()
+        self.last_correction = None
+
     def _handle_boundary(self, boundary: int, output: bytearray) -> None:
+        if self._resume_after_word and boundary == 0x20:
+            self._resume_after_word = False
+            self.safe_to_correct = True
+            output.append(boundary)
+            self.token.clear()
+            return
+
         if self.safe_to_correct and self.token:
             original = bytes(self.token)
             correction = self._suggest(original)
@@ -158,6 +189,7 @@ class InputProcessor:
 
     def _invalidate_line(self) -> None:
         self.safe_to_correct = False
+        self._resume_after_word = False
         self.token.clear()
         self.last_correction = None
 
@@ -180,6 +212,7 @@ class InputProcessor:
 
     def _reset_line(self) -> None:
         self.safe_to_correct = True
+        self._resume_after_word = False
         self.token.clear()
         self.last_correction = None
 
