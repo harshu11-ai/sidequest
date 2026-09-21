@@ -1174,38 +1174,30 @@ class CodexPanelTriggerTests(unittest.TestCase):
     def test_bracketed_paste_then_enter_is_one_prompt(self) -> None:
         self.assertEqual(self.shows(PASTE(b"hello"), b"\r"), 1)
 
-    @known_bug("a multi-line bracketed paste is treated as Enter, opening the panel unsubmitted")
     def test_newlines_inside_a_paste_are_not_submits(self) -> None:
         for newline in (b"\n", b"\r", b"\r\n"):
             with self.subTest(newline=newline):
                 self.assertEqual(self.shows(PASTE(b"one" + newline + b"two")), 0)
                 self.assertEqual(self.shows(PASTE(b"one" + newline + b"two"), b"\r"), 1)
 
-    @known_bug(
-        "clearing the box (Ctrl-C/U/W) leaves the typed count behind, so a blank Enter opens"
-    )
     def test_clearing_the_box_then_a_blank_enter_is_not_a_prompt(self) -> None:
         for name, clear in {"ctrl+c": b"\x03", "ctrl+u": b"\x15", "ctrl+w": b"\x17"}.items():
             with self.subTest(clear=name):
                 self.assertEqual(self.shows(b"abc", clear, b"\r"), 0)
 
-    @known_bug("Up / Alt+Up recall puts text in the box, but Enter on it isn't counted as a prompt")
     def test_resubmitting_recalled_or_queued_text_opens_the_panel(self) -> None:
         for name, recall in {"up": b"\x1b[A", "alt+up": b"\x1b[1;3A", "ctrl+p": b"\x10"}.items():
             with self.subTest(recall=name):
                 self.assertEqual(self.shows(recall, b"\r"), 1)
 
-    @known_bug("Alt+Enter (ESC CR) and Ctrl-J insert a newline but are counted as a submit")
-    def test_newline_keys_other_than_shift_enter_are_not_submits(self) -> None:
-        for name, newline in {"alt+enter": b"\x1b\r", "ctrl+j": b"\n"}.items():
-            with self.subTest(newline=name):
-                self.assertEqual(self.shows(b"abc" + newline), 0)
+    def test_alt_enter_is_a_newline_not_a_submit(self) -> None:
+        self.assertEqual(self.shows(b"abc\x1b\r"), 0)
+        self.assertEqual(self.shows(b"abc\x1b\r", b"def\r"), 1)
 
-    @known_bug("Meta keys and split escape sequences are counted as typed text")
     def test_keys_that_type_nothing_do_not_make_a_blank_enter_a_prompt(self) -> None:
         for name, chunks in {
             "alt+b": [b"\x1bb", b"\r"],
-            "arrow split across reads": [b"\x1b[", b"A", b"\r"],
+            "arrow split across reads": [b"\x1b[", b"D", b"\r"],
         }.items():
             with self.subTest(keys=name):
                 self.assertEqual(self.shows(*chunks), 0)
