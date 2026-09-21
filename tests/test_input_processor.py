@@ -364,6 +364,13 @@ class InputProcessorTests(unittest.TestCase):
         alt_x = b"\x1bx"
         self.assertEqual(processor.feed(alt_x + b"a\t b teh "), alt_x + b"a\t b teh ")
 
+    def test_enter_after_a_tab_does_not_swallow_the_next_lines_first_word(self) -> None:
+        for submit in (b"\r", b"\n"):
+            with self.subTest(submit=submit):
+                processor = InputProcessor()
+                self.assertEqual(processor.feed(b"open sr\t" + submit), b"open sr\t" + submit)
+                self.assertEqual(processor.feed(b"teh "), b"teh\x7f\x7f\x7fthe ")
+
 
 if __name__ == "__main__":
     unittest.main()

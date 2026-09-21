@@ -22,6 +22,7 @@ from sidequest.video.queue import VideoQueue
 _MAX_REQUEST_BYTES = 4096
 # Agent hook bodies carry the whole prompt plus session metadata.
 _MAX_HOOK_BYTES = 64 * 1024
+_MAX_DISCARD_BYTES = 8 * 1024 * 1024
 _MODES = ("chess", "video")
 
 # Sized per mode: a compact settings panel and larger activity windows.
@@ -472,12 +473,26 @@ class BreaksCompanion:
         """Best-effort parse of an agent hook body; anything odd reads as empty."""
         try:
             length = int(handler.headers.get("Content-Length", "0"))
-            if not 0 < length <= _MAX_HOOK_BYTES:
+            if length <= 0:
+                return {}
+            if length > _MAX_HOOK_BYTES:
+                # Too big to be worth parsing, but read it off the socket:
+                # answering with the body unread makes some platforms reset
+                # the connection, which the agent would report as a hook error.
+                self._discard(handler, min(length, _MAX_DISCARD_BYTES))
                 return {}
             payload = json.loads(handler.rfile.read(length))
         except (ValueError, OSError):
             return {}
         return payload if isinstance(payload, dict) else {}
+
+    @staticmethod
+    def _discard(handler: BaseHTTPRequestHandler, remaining: int) -> None:
+        while remaining > 0:
+            chunk = handler.rfile.read(min(remaining, 64 * 1024))
+            if not chunk:
+                return
+            remaining -= len(chunk)
 
     def _dispatch_post(self, path: str, payload: dict) -> dict[str, object]:
         if path == "/api/breaks/toggle":
