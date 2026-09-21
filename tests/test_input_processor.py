@@ -337,6 +337,33 @@ class InputProcessorTests(unittest.TestCase):
         self.assertEqual(processor.feed(b"teh\tteh "), b"teh\tteh ")
         self.assertEqual(processor.feed(b"\nteh "), b"\nteh\x7f\x7f\x7fthe ")
 
+    def test_correction_resumes_after_the_tab_completed_word_ends(self) -> None:
+        processor = InputProcessor()
+        # The word Tab touched is left alone; the next word is corrected.
+        self.assertEqual(
+            processor.feed(b"teh\tteh teh "),
+            b"teh\tteh teh\x7f\x7f\x7fthe ",
+        )
+
+    def test_tab_completed_word_tail_is_never_corrected(self) -> None:
+        processor = InputProcessor()
+        # Only the typed tail is visible to us, so it must not be rewritten.
+        self.assertEqual(processor.feed(b"src/\tteh "), b"src/\tteh ")
+        self.assertEqual(processor.feed(b"teh "), b"teh\x7f\x7f\x7fthe ")
+
+    def test_tab_then_unknown_escape_still_suspends_the_line(self) -> None:
+        processor = InputProcessor()
+        alt_x = b"\x1bx"
+        self.assertEqual(
+            processor.feed(b"a\t" + alt_x + b" teh "),
+            b"a\t" + alt_x + b" teh ",
+        )
+
+    def test_tab_after_an_invalidated_line_does_not_resume_correction(self) -> None:
+        processor = InputProcessor()
+        alt_x = b"\x1bx"
+        self.assertEqual(processor.feed(alt_x + b"a\t b teh "), alt_x + b"a\t b teh ")
+
 
 if __name__ == "__main__":
     unittest.main()
