@@ -194,6 +194,28 @@ class BreaksCompanionTests(unittest.TestCase):
         self.assertFalse(self.companion.is_active())
         self.assertEqual(self.close_count, 0)  # the idle panel is left alone
 
+    def test_lifecycle_start_ignores_slash_command_prompts(self) -> None:
+        for prompt in ("/help", "  /model opus"):
+            _post(
+                self.companion.lifecycle_url("start"),
+                {"hook_event_name": "UserPromptSubmit", "prompt": prompt},
+            )
+        self.assertFalse(self.companion.is_active())
+
+        _post(
+            self.companion.lifecycle_url("start"),
+            {"hook_event_name": "UserPromptSubmit", "prompt": "fix the bug"},
+        )
+        self.assertTrue(self.companion.is_active())
+
+    def test_lifecycle_start_from_tool_use_still_opens_for_slash_text(self) -> None:
+        # A slash command that goes on to run tools is real agent work.
+        _post(
+            self.companion.lifecycle_url("start"),
+            {"hook_event_name": "PostToolUse", "prompt": "/deploy"},
+        )
+        self.assertTrue(self.companion.is_active())
+
     def test_idle_panel_is_only_opened_once_across_repeated_turns(self) -> None:
         self.companion.show()
         self.companion.hide()
