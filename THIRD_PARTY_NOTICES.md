@@ -6,7 +6,7 @@ Sidequest bundles cm-chessboard 8.14.0 by Stefan Haack.
 
 - Source: https://github.com/shaack/cm-chessboard
 - Code license: MIT
-- Bundled license text: `src/sidequest/web/cm-chessboard-LICENSE.txt`
+- Bundled license text: `src/sidequest/chess/web/cm-chessboard-LICENSE.txt`
 
 The bundled `cm-standard.svg` chess-piece sprite is from cm-chessboard and is
 distributed unmodified under the Creative Commons Attribution-ShareAlike 3.0
