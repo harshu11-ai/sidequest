@@ -24,6 +24,8 @@ class ConfigurationError(ValueError):
 class RoutingConfiguration:
     """Optional overrides for model routing; anything unset keeps its default."""
 
+    # Whether `sidequest setup` turned routing on; --route / --no-route override it.
+    enabled: bool = False
     # application -> tier -> the model's name as its /model picker shows it
     models: dict[str, dict[str, str]] = field(default_factory=dict)
     min_confidence: float | None = None
@@ -132,13 +134,49 @@ def load_configuration(path: str | Path | None = None) -> UserConfiguration:
     )
 
 
+def set_routing_enabled(path: str | Path | None, enabled: bool) -> Path:
+    """Record whether routing is on, keeping everything else in the file as it was.
+
+    Returns the file written: the one that would be loaded, so an old
+    cli-autocorrect config still in use is updated in place, not shadowed.
+    """
+    config_path = load_configuration(path).path
+    data: dict[str, object] = {}
+    if config_path.exists():
+        try:
+            loaded = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ConfigurationError(f"could not update {config_path}: {error}") from error
+        if not isinstance(loaded, dict):
+            raise ConfigurationError(f"{config_path} must contain a JSON object")
+        data = loaded
+    routing = data.get("routing", {})
+    if not isinstance(routing, dict):
+        raise ConfigurationError(f"'routing' in {config_path} must be a JSON object")
+    data["routing"] = {**routing, "enabled": enabled}
+
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = config_path.with_name(f".{config_path.name}.tmp")
+    try:
+        temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(config_path)
+    except OSError as error:
+        temporary.unlink(missing_ok=True)
+        raise ConfigurationError(f"could not write {config_path}: {error}") from error
+    return config_path
+
+
 def _routing(value: object, config_path: Path) -> RoutingConfiguration:
     if not isinstance(value, dict):
         raise ConfigurationError(f"'routing' in {config_path} must be a JSON object")
-    unknown = set(value) - {*_ROUTING_APPS, "min_confidence"}
+    unknown = set(value) - {*_ROUTING_APPS, "enabled", "min_confidence"}
     if unknown:
         names = ", ".join(sorted(str(key) for key in unknown))
         raise ConfigurationError(f"unknown 'routing' key(s) in {config_path}: {names}")
+
+    enabled = value.get("enabled", False)
+    if not isinstance(enabled, bool):
+        raise ConfigurationError("routing 'enabled' must be true or false")
 
     min_confidence = value.get("min_confidence")
     if min_confidence is not None and (
@@ -170,6 +208,7 @@ def _routing(value: object, config_path: Path) -> RoutingConfiguration:
                 )
         models[application] = dict(tiers)
     return RoutingConfiguration(
+        enabled=enabled,
         models=models,
         min_confidence=None if min_confidence is None else float(min_confidence),
     )

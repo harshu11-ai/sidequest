@@ -27,7 +27,7 @@ yourself.
 - immediate Backspace to undo the last correction
 - optional personal corrections in a small JSON config file
 - optional `--breaks` control panel: toggle resumable chess and/or educational-video breaks live while an agent turn is running, no relaunch needed
-- optional `--route` mode: before each prompt, TypeSafe's Jev model judges how demanding it is and the agent is switched to a matching model for that session (sends prompts to TypeSafe -- see [Model routing](#model-routing))
+- optional model routing (`sidequest setup`): before each prompt, TypeSafe's Jev model judges how demanding it is and the agent is switched to a matching model for that session (sends prompts to TypeSafe -- see [Model routing](#model-routing))
 - transparent `--no-corrections` mode for terminal troubleshooting
 
 ## Install
@@ -161,20 +161,35 @@ The previous `cauto` command remains available as a backward-compatible alias.
 
 ## Model routing
 
-`--route` picks a model for each prompt. When you press Enter, Sidequest asks
-[TypeSafe](https://typesafe.ai)'s Jev model whether the prompt is small
+Model routing picks a model for each prompt. When you press Enter, Sidequest
+asks [TypeSafe](https://typesafe.ai)'s Jev model whether the prompt is small
 mechanical work, ordinary engineering, or hard reasoning, then switches the
 agent to the matching model *for this session only* before the prompt is sent.
-It is off unless you ask for it.
+It is off until you turn it on.
 
 ```bash
 pipx inject sidequest pyte typesafe-sdk   # or: pip install 'sidequest[routing]'
-export TYPESAFE_API_KEY=...
-sidequest --route claude
-sidequest --route codex
+sidequest setup
 ```
 
-Without `TYPESAFE_API_KEY`, `--route` exits with an error instead of running.
+`sidequest setup` asks whether you want routing (`y/N`). If you do, it asks for
+your TypeSafe API key (typing is hidden), checks it with a test request, saves
+it, and turns routing on. From then on `sidequest claude` and `sidequest codex`
+route every prompt with no extra flags. Run `sidequest setup` again any time to
+change your answer or replace the key.
+
+| Command | Effect |
+| --- | --- |
+| `sidequest setup` | turn routing on or off, and store the API key |
+| `sidequest --no-route claude` | skip routing for this run |
+| `sidequest --route claude` | route this run even if setup hasn't turned it on (needs a key) |
+
+The key is read from the `TYPESAFE_API_KEY` environment variable if it is set,
+and otherwise from `typesafe_key` next to your config file (mode `0600`;
+Sidequest refuses to use it if other users can read it). If routing is on and
+no key can be found, Sidequest exits with an error instead of running without
+it. `--no-corrections` is the transparent troubleshooting mode, so it also
+leaves routing off unless you pass `--route`.
 
 | Tier | What it means | Claude Code | Codex |
 | --- | --- | --- | --- |
@@ -184,11 +199,12 @@ Without `TYPESAFE_API_KEY`, `--route` exits with an error instead of running.
 
 Model names change, and they are matched against what each agent's own
 `/model` picker shows. Override any of them, and the confidence needed to
-switch (default `0.7`), in the config file:
+switch (default `0.7`), in the config file (`enabled` is what `sidequest setup` writes):
 
 ```json
 {
   "routing": {
+    "enabled": true,
     "min_confidence": 0.8,
     "claude": { "fast": "Sonnet 5" },
     "codex": { "deep": "GPT-6-Sol" }
@@ -317,9 +333,12 @@ can be replaced without changing the terminal input processor.
 
 Prompts are processed in memory on the local machine. Sidequest does not
 store prompts, terminal output, environment variables, or source code.
-The one exception is `--route`: with it, each prompt (the first and last
+The one exception is model routing: with it, each prompt (the first and last
 4,000 characters of a long one) is sent to TypeSafe to be classified, under
-your `TYPESAFE_API_KEY`. Nothing is sent without that flag.
+your API key. Nothing is sent unless you turned routing on with
+`sidequest setup` or pass `--route`; `--no-route` stops it for a run. The API
+key is stored only in the `0600` key file beside your config, or in your
+environment.
 Chess breaks store only the current board position beneath
 `~/.local/state/sidequest/` (or `XDG_STATE_HOME`) so games can resume.
 Video breaks store only your queue position and playback position the same

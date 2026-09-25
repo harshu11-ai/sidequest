@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Any, Literal
 
 Tier = Literal["fast", "balanced", "deep"]
 TIERS: tuple[Tier, ...] = ("fast", "balanced", "deep")
 
-API_KEY_ENV = "TYPESAFE_API_KEY"
 # Only the start and end of a long prompt are sent: enough to judge the task,
 # and it bounds both latency and how much of a prompt leaves the machine.
 _MAX_PROMPT_CHARS = 4000
@@ -41,6 +39,14 @@ class Judgment:
     confidence: float
 
 
+def sdk_available() -> bool:
+    try:
+        import typesafe_sdk  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 class JevClassifier:
     """Ask Jev for a tier. Any failure yields None: routing must never break a prompt."""
 
@@ -55,7 +61,7 @@ class JevClassifier:
         self._client = client
         self._question: Any = question  # built from the SDK on first use unless given
         if client is None:
-            self._client = self._build_client(api_key or os.environ.get(API_KEY_ENV), timeout)
+            self._client = self._build_client(api_key, timeout)
 
     @property
     def available(self) -> bool:

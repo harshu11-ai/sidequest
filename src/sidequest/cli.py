@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import platform
 import shutil
 import sys
@@ -13,7 +12,7 @@ from sidequest import __version__
 from sidequest.autocorrect.config import ConfigurationError, UserConfiguration, load_configuration
 from sidequest.autocorrect.corrector import FrequencyCorrector
 from sidequest.pty_proxy import TerminalRequiredError, run_in_pty
-from sidequest.routing.classifier import API_KEY_ENV
+from sidequest.routing.credentials import API_KEY_ENV, CredentialsError, resolve_api_key
 from sidequest.updater import UpdateError, update_with_pipx
 
 if TYPE_CHECKING:
@@ -44,12 +43,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="open a small control panel for resumable chess/video breaks while the "
         "agent is working -- chess, video, both, or neither, toggled live from the panel",
     )
-    parser.add_argument(
+    routing_flags = parser.add_mutually_exclusive_group()
+    routing_flags.add_argument(
         "--route",
         action="store_true",
-        help=f"before each prompt, ask TypeSafe's Jev which model tier it needs and switch "
-        f"the agent to it for this session (sends your prompts to TypeSafe; requires "
-        f"{API_KEY_ENV})",
+        help="use model routing for this run even if 'sidequest setup' has not turned it on: "
+        "before each prompt, ask TypeSafe's Jev which model it needs and switch the agent to "
+        f"it for this session (sends your prompts to TypeSafe; needs {API_KEY_ENV} or a key "
+        "saved by 'sidequest setup')",
+    )
+    routing_flags.add_argument(
+        "--no-route",
+        action="store_true",
+        help="skip model routing for this run",
     )
     parser.add_argument(
         "--doctor",
@@ -59,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "command",
         nargs=argparse.REMAINDER,
-        help="update, or claude/codex followed by arguments for that application",
+        help="update, setup, or claude/codex followed by arguments for that application",
     )
     return parser
 
@@ -86,9 +92,21 @@ def main(argv: list[str] | None = None) -> int:
             or arguments.config is not None
             or arguments.breaks
             or arguments.route
+            or arguments.no_route
         ):
             parser.error("'update' cannot be combined with wrapper options")
         return _run_update()
+
+    if command and command[0] == "setup":
+        if len(command) != 1:
+            parser.error("'setup' does not accept additional arguments")
+        if arguments.no_corrections or arguments.breaks or arguments.route or arguments.no_route:
+            parser.error("'setup' can only be combined with --config")
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            parser.error("'setup' needs an interactive terminal")
+        from sidequest.routing.wizard import run_setup
+
+        return run_setup(arguments.config)
 
     if not command:
         parser.error("provide either 'claude' or 'codex' to run")
@@ -99,18 +117,23 @@ def main(argv: list[str] | None = None) -> int:
     if shutil.which(application) is None:
         parser.error(f"could not find '{application}' on PATH")
 
-    if arguments.route and not os.environ.get(API_KEY_ENV):
-        parser.error(f"--route requires the {API_KEY_ENV} environment variable to be set")
-
     configuration = None
     if arguments.route or not arguments.no_corrections:
         configuration = _load_configuration(arguments.config)
         if configuration is None:
             return 2
 
+    # `sidequest setup` turns routing on for every run. --no-corrections is the
+    # transparent troubleshooting mode, so it leaves routing off unless --route says otherwise.
+    use_routing = arguments.route or (
+        configuration is not None
+        and configuration.routing.enabled
+        and not arguments.no_route
+        and not arguments.no_corrections
+    )
     routing = None
-    if arguments.route:
-        routing = _build_routing(parser, application, configuration)
+    if use_routing:
+        routing = _build_routing(parser, application, configuration, requested=arguments.route)
 
     corrector = None
     if not arguments.no_corrections:
@@ -159,18 +182,30 @@ def _build_routing(
     parser: argparse.ArgumentParser,
     application: str,
     configuration: UserConfiguration,
+    *,
+    requested: bool,
 ) -> RoutingSession:
-    from sidequest.routing.classifier import JevClassifier
+    from sidequest.routing.classifier import JevClassifier, sdk_available
     from sidequest.routing.defaults import DEFAULT_MODELS
     from sidequest.routing.router import DEFAULT_MIN_CONFIDENCE, ModelRouter
     from sidequest.routing.screen import VirtualScreen
     from sidequest.routing.session import RoutingSession
 
-    if not VirtualScreen.available():
-        parser.error("--route needs pyte: pipx inject sidequest pyte typesafe-sdk")
-    classifier = JevClassifier()
-    if not classifier.available:
-        parser.error("--route needs the TypeSafe SDK: pipx inject sidequest pyte typesafe-sdk")
+    why = "--route" if requested else "model routing (turned on by 'sidequest setup')"
+    skip = "" if requested else "; use --no-route to skip it for this run"
+    try:
+        key = resolve_api_key(configuration.path)
+    except CredentialsError as error:
+        parser.error(f"{why} can't use the saved API key: {error}{skip}")
+    if key is None:
+        parser.error(
+            f"{why} needs a TypeSafe API key: set {API_KEY_ENV} or run 'sidequest setup'{skip}"
+        )
+    if not VirtualScreen.available() or not sdk_available():
+        parser.error(
+            f"{why} needs pyte and typesafe-sdk: pipx inject sidequest pyte typesafe-sdk{skip}"
+        )
+    classifier = JevClassifier(key.value)
 
     settings = configuration.routing
     models = {**DEFAULT_MODELS[application], **settings.models.get(application, {})}
@@ -228,7 +263,7 @@ def _run_doctor(configuration: UserConfiguration) -> int:
         "interactive" if sys.stdin.isatty() and sys.stdout.isatty() else "not interactive"
     )
     print(f"Terminal: {terminal_status}")
-    print(f"Routing: {_routing_status()}")
+    print(f"Routing: {_routing_status(configuration)}")
 
     if corrector.load_error is not None:
         print(f"Dictionary error: {corrector.load_error}", file=sys.stderr)
@@ -236,18 +271,20 @@ def _run_doctor(configuration: UserConfiguration) -> int:
     return 0
 
 
-def _routing_status() -> str:
-    from sidequest.routing.classifier import JevClassifier
+def _routing_status(configuration: UserConfiguration) -> str:
+    from sidequest.routing.classifier import sdk_available
     from sidequest.routing.screen import VirtualScreen
 
-    problems = []
-    if not os.environ.get(API_KEY_ENV):
-        problems.append(f"{API_KEY_ENV} not set")
-    elif not JevClassifier().available:
-        problems.append("typesafe-sdk not installed")
-    if not VirtualScreen.available():
-        problems.append("pyte not installed")
-    return "ready for --route" if not problems else "not ready (" + ", ".join(problems) + ")"
+    state = "on" if configuration.routing.enabled else "off (run 'sidequest setup' to turn it on)"
+    try:
+        key = resolve_api_key(configuration.path)
+        key_status = f"key from {key.source}" if key else "no API key"
+    except CredentialsError as error:
+        key_status = str(error)
+    packages = {"pyte": VirtualScreen.available(), "typesafe-sdk": sdk_available()}
+    missing = [name for name, present in packages.items() if not present]
+    details = [key_status] + ([f"missing {', '.join(missing)}"] if missing else [])
+    return f"{state}; {'; '.join(details)}"
 
 
 def _run_update() -> int:
