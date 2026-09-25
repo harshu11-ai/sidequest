@@ -5,16 +5,28 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 _PLAIN_WORD = re.compile(r"^[a-z]+$")
 _MAX_WORD_LENGTH = 64
 _MAX_EXPANSION_LENGTH = 500
+_ROUTING_APPS = ("claude", "codex")
+_ROUTING_TIERS = ("fast", "balanced", "deep")
+_MAX_MODEL_NAME_LENGTH = 64
 
 
 class ConfigurationError(ValueError):
     """Raised when a configuration file cannot be read or validated."""
+
+
+@dataclass(frozen=True, slots=True)
+class RoutingConfiguration:
+    """Optional overrides for model routing; anything unset keeps its default."""
+
+    # application -> tier -> the model's name as its /model picker shows it
+    models: dict[str, dict[str, str]] = field(default_factory=dict)
+    min_confidence: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +37,7 @@ class UserConfiguration:
     corrections: dict[str, str]
     abbreviations: dict[str, str]
     exists: bool
+    routing: RoutingConfiguration = field(default_factory=RoutingConfiguration)
 
 
 def default_config_path() -> Path:
@@ -67,7 +80,7 @@ def load_configuration(path: str | Path | None = None) -> UserConfiguration:
 
     if not isinstance(data, dict):
         raise ConfigurationError(f"{config_path} must contain a JSON object")
-    unknown_keys = set(data) - {"abbreviations", "corrections"}
+    unknown_keys = set(data) - {"abbreviations", "corrections", "routing"}
     if unknown_keys:
         names = ", ".join(sorted(str(key) for key in unknown_keys))
         raise ConfigurationError(f"unknown configuration key(s) in {config_path}: {names}")
@@ -115,6 +128,50 @@ def load_configuration(path: str | Path | None = None) -> UserConfiguration:
         corrections=validated_corrections,
         abbreviations=validated_abbreviations,
         exists=True,
+        routing=_routing(data.get("routing", {}), config_path),
+    )
+
+
+def _routing(value: object, config_path: Path) -> RoutingConfiguration:
+    if not isinstance(value, dict):
+        raise ConfigurationError(f"'routing' in {config_path} must be a JSON object")
+    unknown = set(value) - {*_ROUTING_APPS, "min_confidence"}
+    if unknown:
+        names = ", ".join(sorted(str(key) for key in unknown))
+        raise ConfigurationError(f"unknown 'routing' key(s) in {config_path}: {names}")
+
+    min_confidence = value.get("min_confidence")
+    if min_confidence is not None and (
+        isinstance(min_confidence, bool)
+        or not isinstance(min_confidence, (int, float))
+        or not 0 <= min_confidence <= 1
+    ):
+        raise ConfigurationError("routing 'min_confidence' must be a number from 0 to 1")
+
+    models: dict[str, dict[str, str]] = {}
+    for application in _ROUTING_APPS:
+        tiers = value.get(application)
+        if tiers is None:
+            continue
+        if not isinstance(tiers, dict) or set(tiers) - set(_ROUTING_TIERS):
+            raise ConfigurationError(
+                f"routing {application!r} must map only {', '.join(_ROUTING_TIERS)} to model names"
+            )
+        for tier, name in tiers.items():
+            if (
+                not isinstance(name, str)
+                or not name.strip()
+                or len(name) > _MAX_MODEL_NAME_LENGTH
+                or not name.isprintable()
+            ):
+                raise ConfigurationError(
+                    f"routing {application!r} {tier!r} must be a model name of 1 to "
+                    f"{_MAX_MODEL_NAME_LENGTH} printable characters"
+                )
+        models[application] = dict(tiers)
+    return RoutingConfiguration(
+        models=models,
+        min_confidence=None if min_confidence is None else float(min_confidence),
     )
 
 

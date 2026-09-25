@@ -29,6 +29,10 @@ class UpdateResult:
 @dataclass(frozen=True, slots=True)
 class _PipxInstallation:
     version: str
+    environment: str = PACKAGE_NAME
+    # Packages added with `pipx inject` (such as the routing extras); a
+    # force-reinstall drops them, so they are put back afterwards.
+    injected: tuple[str, ...] = ()
 
 
 def update_with_pipx() -> UpdateResult:
@@ -49,10 +53,24 @@ def update_with_pipx() -> UpdateResult:
         raise UpdateError(f"pipx exited with status {completed.returncode}")
 
     after = _find_active_installation(_load_pipx_listing(pipx))
+    if before.injected:
+        _reinject(pipx, after.environment, before.injected)
     return UpdateResult(
         previous_version=before.version,
         current_version=after.version,
     )
+
+
+def _reinject(pipx: str, environment: str, packages: tuple[str, ...]) -> None:
+    names = " ".join(packages)
+    try:
+        completed = subprocess.run([pipx, "inject", environment, *packages], check=False)
+    except OSError as error:
+        raise UpdateError(f"updated, but could not restore {names}: {error}") from error
+    if completed.returncode != 0:
+        raise UpdateError(
+            f"updated, but could not restore {names}; run: pipx inject {environment} {names}"
+        )
 
 
 def _load_pipx_listing(pipx: str) -> dict[str, Any]:
@@ -85,7 +103,7 @@ def _find_active_installation(listing: dict[str, Any]) -> _PipxInstallation:
     if not isinstance(environments, dict):
         raise UpdateError("pipx returned invalid installation metadata")
 
-    for environment in environments.values():
+    for environment_name, environment in environments.items():
         if not isinstance(environment, dict):
             continue
         metadata = environment.get("metadata")
@@ -111,12 +129,23 @@ def _find_active_installation(listing: dict[str, Any]) -> _PipxInstallation:
             version = package.get("package_version")
             if not isinstance(version, str) or not version:
                 raise UpdateError("pipx did not report the installed version")
-            return _PipxInstallation(version=version)
+            return _PipxInstallation(
+                version=version,
+                environment=str(environment_name),
+                injected=_injected_packages(metadata),
+            )
 
     raise UpdateError(
         "the running copy is not managed by pipx; update it with the package manager "
         "that installed it"
     )
+
+
+def _injected_packages(metadata: dict[str, Any]) -> tuple[str, ...]:
+    injected = metadata.get("injected_packages")
+    if not isinstance(injected, dict):
+        return ()
+    return tuple(name for name in injected if isinstance(name, str) and name)
 
 
 def _decode_path(value: object) -> Path | None:

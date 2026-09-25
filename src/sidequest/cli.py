@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 import argparse
+import os
 import platform
 import shutil
 import sys
+from typing import TYPE_CHECKING
 
 from sidequest import __version__
 from sidequest.autocorrect.config import ConfigurationError, UserConfiguration, load_configuration
 from sidequest.autocorrect.corrector import FrequencyCorrector
 from sidequest.pty_proxy import TerminalRequiredError, run_in_pty
+from sidequest.routing.classifier import API_KEY_ENV
 from sidequest.updater import UpdateError, update_with_pipx
+
+if TYPE_CHECKING:
+    from sidequest.routing.session import RoutingSession
 
 SUPPORTED_APPS = {"claude", "codex"}
 
@@ -37,6 +43,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="open a small control panel for resumable chess/video breaks while the "
         "agent is working -- chess, video, both, or neither, toggled live from the panel",
+    )
+    parser.add_argument(
+        "--route",
+        action="store_true",
+        help=f"before each prompt, ask TypeSafe's Jev which model tier it needs and switch "
+        f"the agent to it for this session (sends your prompts to TypeSafe; requires "
+        f"{API_KEY_ENV})",
     )
     parser.add_argument(
         "--doctor",
@@ -68,7 +81,12 @@ def main(argv: list[str] | None = None) -> int:
     if command and command[0] == "update":
         if len(command) != 1:
             parser.error("'update' does not accept additional arguments")
-        if arguments.no_corrections or arguments.config is not None or arguments.breaks:
+        if (
+            arguments.no_corrections
+            or arguments.config is not None
+            or arguments.breaks
+            or arguments.route
+        ):
             parser.error("'update' cannot be combined with wrapper options")
         return _run_update()
 
@@ -81,11 +99,21 @@ def main(argv: list[str] | None = None) -> int:
     if shutil.which(application) is None:
         parser.error(f"could not find '{application}' on PATH")
 
-    corrector = None
-    if not arguments.no_corrections:
+    if arguments.route and not os.environ.get(API_KEY_ENV):
+        parser.error(f"--route requires the {API_KEY_ENV} environment variable to be set")
+
+    configuration = None
+    if arguments.route or not arguments.no_corrections:
         configuration = _load_configuration(arguments.config)
         if configuration is None:
             return 2
+
+    routing = None
+    if arguments.route:
+        routing = _build_routing(parser, application, configuration)
+
+    corrector = None
+    if not arguments.no_corrections:
         corrector = FrequencyCorrector(
             background=True,
             custom_corrections=configuration.corrections,
@@ -110,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
             corrector=corrector,
             on_user_input=lifecycle.user_input if lifecycle else None,
             on_child_output=lifecycle.child_output if lifecycle else None,
+            router=routing,
         )
     except TerminalRequiredError as error:
         print(f"sidequest: {error}", file=sys.stderr)
@@ -122,6 +151,44 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if companion is not None:
             companion.close()
+        if routing is not None:
+            _report_routing(routing)
+
+
+def _build_routing(
+    parser: argparse.ArgumentParser,
+    application: str,
+    configuration: UserConfiguration,
+) -> RoutingSession:
+    from sidequest.routing.classifier import JevClassifier
+    from sidequest.routing.defaults import DEFAULT_MODELS
+    from sidequest.routing.router import DEFAULT_MIN_CONFIDENCE, ModelRouter
+    from sidequest.routing.screen import VirtualScreen
+    from sidequest.routing.session import RoutingSession
+
+    if not VirtualScreen.available():
+        parser.error("--route needs pyte: pipx inject sidequest pyte typesafe-sdk")
+    classifier = JevClassifier()
+    if not classifier.available:
+        parser.error("--route needs the TypeSafe SDK: pipx inject sidequest pyte typesafe-sdk")
+
+    settings = configuration.routing
+    models = {**DEFAULT_MODELS[application], **settings.models.get(application, {})}
+    min_confidence = (
+        DEFAULT_MIN_CONFIDENCE if settings.min_confidence is None else settings.min_confidence
+    )
+    router = ModelRouter(classifier, models, min_confidence=min_confidence)
+    return RoutingSession(application, router, VirtualScreen())
+
+
+def _report_routing(routing: RoutingSession) -> None:
+    """Say what routing did, since it works invisibly between prompts."""
+    if routing.switches:
+        path = " -> ".join(routing.switches)
+        count = len(routing.switches)
+        print(f"sidequest: routing switched models {count}x ({path})", file=sys.stderr)
+    for note in routing.notes:
+        print(f"sidequest: {note}", file=sys.stderr)
 
 
 def _load_configuration(path: str | None) -> UserConfiguration | None:
@@ -161,11 +228,26 @@ def _run_doctor(configuration: UserConfiguration) -> int:
         "interactive" if sys.stdin.isatty() and sys.stdout.isatty() else "not interactive"
     )
     print(f"Terminal: {terminal_status}")
+    print(f"Routing: {_routing_status()}")
 
     if corrector.load_error is not None:
         print(f"Dictionary error: {corrector.load_error}", file=sys.stderr)
         return 1
     return 0
+
+
+def _routing_status() -> str:
+    from sidequest.routing.classifier import JevClassifier
+    from sidequest.routing.screen import VirtualScreen
+
+    problems = []
+    if not os.environ.get(API_KEY_ENV):
+        problems.append(f"{API_KEY_ENV} not set")
+    elif not JevClassifier().available:
+        problems.append("typesafe-sdk not installed")
+    if not VirtualScreen.available():
+        problems.append("pyte not installed")
+    return "ready for --route" if not problems else "not ready (" + ", ".join(problems) + ")"
 
 
 def _run_update() -> int:

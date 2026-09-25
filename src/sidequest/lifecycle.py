@@ -31,9 +31,13 @@ _SEQUENCE_CONTINUATIONS = b"[O]P_^X"
 _MAX_STRING = 1024
 _RECALLED = b"?"  # stands in for text an Up / Ctrl-P recall put in the box
 _KITTY_MODIFIER_SHIFT, _KITTY_MODIFIER_ALT, _KITTY_MODIFIER_CTRL = 1, 2, 4
+# Controls that move the cursor or edit away from the end: Ctrl-A/B/E/F/K/T/Y, Tab, Ctrl-L.
+_CURSOR_MOVING_CONTROLS = {0x01, 0x02, 0x05, 0x06, 0x09, 0x0B, 0x0C, 0x14, 0x19}
+# CSI finals for arrows (B, C, D), Home/End (H, F), and "CSI n ~" keys (Delete, PgUp, ...).
+_CURSOR_MOVING_FINALS = {ord("B"), ord("C"), ord("D"), ord("H"), ord("F"), ord("~")}
 
 
-class _ComposerTracker:
+class ComposerTracker:
     """Follow what is in an agent's prompt box, from the keystrokes sent to it.
 
     Only one question matters: when Enter arrives, is a prompt being sent?
@@ -47,10 +51,23 @@ class _ComposerTracker:
         self._escape = bytearray()
         self._in_paste = False
         self._paste_tail = bytearray()
+        # False once the cursor may be anywhere but the end of the box (arrow
+        # keys, Home/End, Tab, ...) or text we never saw may be in it (recall).
+        # The box then can't be emptied by backspacing, so callers that need to
+        # rewrite it must leave it alone. Cleared again by emptying or submitting.
+        self.at_end = True
+        # (text, at_end) for each prompt submitted by the latest feed().
+        self.submitted: list[tuple[bytes, bool]] = []
+
+    @property
+    def text(self) -> bytes:
+        """What the box holds right now, newlines as LF."""
+        return bytes(self._line)
 
     def feed(self, data: bytes) -> int:
         """Consume input; return how many prompts were submitted in it."""
         submitted = 0
+        self.submitted = []
         self._resolve_lone_escape(data)
         for byte in data:
             if self._in_paste:
@@ -72,21 +89,29 @@ class _ComposerTracker:
             self._backspace()
         elif byte in (0x03, 0x15):  # Ctrl-C / Ctrl-U empty the box
             self._line.clear()
+            self.at_end = True
         elif byte == 0x17:
             self._delete_word()
         elif byte == 0x10:  # Ctrl-P: previous history entry
             self._recall()
         elif byte >= 0x20:
             self._line.append(byte)
-        # other control bytes (Tab, Ctrl-A/E, ...) don't change what's in the box
+        elif byte in _CURSOR_MOVING_CONTROLS:
+            self.at_end = False
+        # other control bytes don't change what's in the box or where the cursor is
         return 0
 
     def _submit(self) -> int:
-        line = bytes(self._line).lstrip()
+        raw = bytes(self._line)
+        line = raw.lstrip()
         self._line.clear()
+        at_end, self.at_end = self.at_end, True
         # A leading "/" is a built-in command (/model, /status, ...), not a
         # prompt handed to the agent -- nothing to take a break for.
-        return 1 if line and not line.startswith(b"/") else 0
+        if not line or line.startswith(b"/"):
+            return 0
+        self.submitted.append((raw, at_end))
+        return 1
 
     def _backspace(self) -> None:
         while self._line and self._line[-1] & 0xC0 == 0x80:  # UTF-8 continuation
@@ -101,6 +126,7 @@ class _ComposerTracker:
 
     def _recall(self) -> None:
         self._line[:] = _RECALLED
+        self.at_end = False
 
     # -- escape sequences -------------------------------------------------
 
@@ -152,7 +178,8 @@ class _ComposerTracker:
             self._line.append(0x0A)
         elif byte in (0x08, 0x7F):  # Alt+Backspace
             self._delete_word()
-        # Alt+B/F/D, ...: no text typed
+        else:  # Alt+B/F/D, ...: no text typed, but the cursor may have moved
+            self.at_end = False
 
     def _csi(self, parameters: bytes, final: int) -> int:
         fields = parameters.split(b";")
@@ -161,6 +188,8 @@ class _ComposerTracker:
         elif final == ord("~") and fields[0] == b"200":
             self._in_paste = True
             self._paste_tail.clear()
+        elif final in _CURSOR_MOVING_FINALS and not parameters.startswith((b"<", b"?", b">", b"=")):
+            self.at_end = False  # arrows, Home/End, Delete, Page Up/Down, ...
         elif final == ord("u"):
             return self._kitty_key(fields)
         return 0
@@ -212,7 +241,7 @@ class AgentLifecycle:
         self._watch_codex_input = watch_codex_input
         self._codex_prompt_ready = False
         self._output_tail = b""
-        self._composer = _ComposerTracker()
+        self._composer = ComposerTracker()
 
     def user_input(self, data: bytes) -> None:
         if not self._watch_codex_input or not self._codex_prompt_ready:

@@ -27,6 +27,7 @@ yourself.
 - immediate Backspace to undo the last correction
 - optional personal corrections in a small JSON config file
 - optional `--breaks` control panel: toggle resumable chess and/or educational-video breaks live while an agent turn is running, no relaunch needed
+- optional `--route` mode: before each prompt, TypeSafe's Jev model judges how demanding it is and the agent is switched to a matching model for that session (sends prompts to TypeSafe -- see [Model routing](#model-routing))
 - transparent `--no-corrections` mode for terminal troubleshooting
 
 ## Install
@@ -158,6 +159,82 @@ sidequest update
 
 The previous `cauto` command remains available as a backward-compatible alias.
 
+## Model routing
+
+`--route` picks a model for each prompt. When you press Enter, Sidequest asks
+[TypeSafe](https://typesafe.ai)'s Jev model whether the prompt is small
+mechanical work, ordinary engineering, or hard reasoning, then switches the
+agent to the matching model *for this session only* before the prompt is sent.
+It is off unless you ask for it.
+
+```bash
+pipx inject sidequest pyte typesafe-sdk   # or: pip install 'sidequest[routing]'
+export TYPESAFE_API_KEY=...
+sidequest --route claude
+sidequest --route codex
+```
+
+Without `TYPESAFE_API_KEY`, `--route` exits with an error instead of running.
+
+| Tier | What it means | Claude Code | Codex |
+| --- | --- | --- | --- |
+| `fast` | rename, format, small edit, quick question | Haiku 4.5 | GPT-6-Luna |
+| `balanced` | well-specified feature, bug fix, tests | Sonnet 5 | GPT-6-Sol |
+| `deep` | architecture, subtle bugs, large refactors | Opus 5.5 | GPT-6-Astra |
+
+Model names change, and they are matched against what each agent's own
+`/model` picker shows. Override any of them, and the confidence needed to
+switch (default `0.7`), in the config file:
+
+```json
+{
+  "routing": {
+    "min_confidence": 0.8,
+    "claude": { "fast": "Sonnet 5" },
+    "codex": { "deep": "GPT-6-Sol" }
+  }
+}
+```
+
+### How it works
+
+Neither agent has a "switch model" API, so Sidequest types into the agent's
+`/model` picker the way you would, using only the picker's **this session only**
+key. Your saved default in `~/.claude/settings.json` or `~/.codex/config.toml`
+is never changed. You will see the `/model` line and its confirmation appear
+in the agent's log just before your prompt.
+
+Sidequest leaves the model alone, and sends your prompt as usual, when:
+
+- Jev is unsure (below `min_confidence`), unreachable, or slow (it waits at most
+  one second)
+- the prompt is very short (a reply such as "yes" depends on the conversation,
+  which Jev doesn't see)
+- the prompt already needs the model you are on
+- the agent is busy, the cursor isn't at the end of your text, or anything else
+  makes it unsafe to type into the box
+- a switch has failed twice in a row (routing then turns itself off, and says
+  so when the session ends)
+
+### Things to know
+
+- **Switching costs cache.** Once a conversation has history, Claude Code warns
+  that the new model must re-read all of it, which is slower and uses more
+  tokens. Sidequest answers "yes" to that. If you route between tiers often in a
+  long conversation, raise `min_confidence` or point two tiers at the same model.
+- **Claude Code permission mode.** Some models (Haiku 4.5 at the time of
+  writing) have no auto mode, so Claude Code drops to manual mode when you
+  switch to one, and stays there afterwards. Sidequest cycles back to the mode
+  you had when the new model allows it.
+- **Codex reasoning effort.** Choosing a Codex model resets its effort to that
+  model's default. Sidequest re-selects the effort you already had.
+- **This drives a terminal UI.** It reads each agent's picker off the screen,
+  so an agent update that redraws it can break switching. It has been tested
+  with Claude Code 2.1.282 and Codex 0.156.0. When it can't tell what it's
+  looking at, it puts your prompt back and stands down rather than guess.
+- `SIDEQUEST_ROUTE_LOG=/path/to/file` records what Sidequest typed into the
+  agent, for troubleshooting. It is off by default.
+
 ## Personal corrections
 
 Create `~/.config/sidequest/config.json` to add corrections specific to
@@ -212,6 +289,7 @@ guardrails than ordinary spelling correction.
 The PTY wrapper has been smoke-tested with Codex CLI 0.151.0 and Claude Code
 2.1.252 on macOS. Compatibility is continuously tested on macOS and Linux, but
 interactive terminal behavior can still differ between terminal emulators.
+Model routing is checked against Claude Code 2.1.282 and Codex CLI 0.156.0.
 
 ## Development
 
@@ -220,7 +298,7 @@ Install the project and its development tools:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,routing]"
 ```
 
 Run the same checks used by CI:
@@ -239,6 +317,9 @@ can be replaced without changing the terminal input processor.
 
 Prompts are processed in memory on the local machine. Sidequest does not
 store prompts, terminal output, environment variables, or source code.
+The one exception is `--route`: with it, each prompt (the first and last
+4,000 characters of a long one) is sent to TypeSafe to be classified, under
+your `TYPESAFE_API_KEY`. Nothing is sent without that flag.
 Chess breaks store only the current board position beneath
 `~/.local/state/sidequest/` (or `XDG_STATE_HOME`) so games can resume.
 Video breaks store only your queue position and playback position the same

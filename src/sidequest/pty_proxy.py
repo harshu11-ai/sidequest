@@ -8,15 +8,20 @@ import os
 import pty
 import select
 import signal
+import struct
 import sys
 import termios
 import time
 import tty
 from collections.abc import Callable, Sequence
 from contextlib import suppress
+from typing import TYPE_CHECKING
 
 from sidequest.autocorrect.corrector import CorrectionEngine
 from sidequest.autocorrect.input_processor import InputProcessor
+
+if TYPE_CHECKING:
+    from sidequest.routing.session import RoutingSession
 
 
 class TerminalRequiredError(RuntimeError):
@@ -39,6 +44,7 @@ def run_in_pty(
     corrector: CorrectionEngine | None = None,
     on_user_input: Callable[[bytes], None] | None = None,
     on_child_output: Callable[[bytes], None] | None = None,
+    router: RoutingSession | None = None,
 ) -> int:
     """Run *command* in a child PTY and proxy the current terminal to it."""
     if not command:
@@ -70,7 +76,52 @@ def run_in_pty(
             fcntl.ioctl(master_fd, termios.TIOCSWINSZ, size)
             os.kill(child_pid, signal.SIGWINCH)
         except OSError:
-            pass
+            return
+        if router is not None:
+            rows, columns = struct.unpack("HHHH", size)[:2]
+            if rows and columns:
+                router.resize(rows, columns)
+
+    def forward_child_output(data: bytes) -> None:
+        if on_child_output is not None:
+            on_child_output(data)
+        if router is not None:
+            router.child_output(data)
+        _write_all(stdout_fd, data)
+
+    route_log = os.environ.get("SIDEQUEST_ROUTE_LOG")
+
+    def log_route(kind: str, detail: object) -> None:
+        """Append to the file named by SIDEQUEST_ROUTE_LOG, if set: what routing did."""
+        if route_log:
+            with suppress(OSError), open(route_log, "a", encoding="utf-8") as log:
+                log.write(f"{time.monotonic():.3f} {kind} {detail}\n")
+
+    class PtyIO:
+        """What model switching needs: type into the agent, and keep its output flowing."""
+
+        def write(self, data: bytes) -> None:
+            log_route("write", repr(data))
+            _write_all(master_fd, data)
+
+        def note(self, text: str) -> None:
+            log_route("note", text)
+
+        def pump(self, seconds: float) -> None:
+            deadline = time.monotonic() + seconds
+            while (remaining := deadline - time.monotonic()) > 0:
+                readable, _, _ = select.select([master_fd], [], [], remaining)
+                if not readable:
+                    return
+                try:
+                    data = os.read(master_fd, 65536)
+                except OSError as error:
+                    if error.errno == errno.EIO:
+                        return  # the agent exited; the main loop notices
+                    raise
+                if not data:
+                    return
+                forward_child_output(data)
 
     def forward_termination(signum: int, _frame: object) -> None:
         with suppress(ProcessLookupError):
@@ -95,9 +146,7 @@ def run_in_pty(
                     raise
                 if not child_output:
                     break
-                if on_child_output is not None:
-                    on_child_output(child_output)
-                _write_all(stdout_fd, child_output)
+                forward_child_output(child_output)
 
             if stdin_fd in readable:
                 user_input = os.read(stdin_fd, 4096)
@@ -109,6 +158,13 @@ def run_in_pty(
                 child_input = processor.feed(user_input) if processor else user_input
                 splits = processor.pending_submit_splits if processor else []
                 try:
+                    if router is not None:
+                        remainder = router.intercept(child_input, PtyIO())
+                        if remainder is not None:
+                            log_route("enter", repr(remainder))
+                            time.sleep(_SUBMIT_SPLIT_DELAY_S)
+                            _write_all(master_fd, remainder)
+                            continue
                     start = 0
                     for split in splits:
                         _write_all(master_fd, child_input[start:split])
