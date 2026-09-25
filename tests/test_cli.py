@@ -1,51 +1,17 @@
 import contextlib
 import io
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch, sentinel
 
 from sidequest.autocorrect.config import UserConfiguration
 from sidequest.cli import _run_doctor, main
+from sidequest.routing.credentials import save_api_key
 from sidequest.updater import UpdateError, UpdateResult
 
 
 class CliTests(unittest.TestCase):
-    @patch("sidequest.cli.run_in_pty")
-    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/claude")
-    def test_route_without_api_key_is_an_error(self, _which, run_in_pty) -> None:
-        stderr = io.StringIO()
-        with (
-            patch.dict("os.environ", {}, clear=True),
-            contextlib.redirect_stderr(stderr),
-            self.assertRaises(SystemExit) as raised,
-        ):
-            main(["--route", "claude"])
-        self.assertEqual(raised.exception.code, 2)
-        self.assertIn("TYPESAFE_API_KEY", stderr.getvalue())
-        run_in_pty.assert_not_called()
-
-    def test_route_cannot_be_combined_with_update(self) -> None:
-        stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
-            main(["--route", "update"])
-        self.assertEqual(raised.exception.code, 2)
-
-    @patch("sidequest.cli.run_in_pty", return_value=0)
-    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/claude")
-    @patch("sidequest.cli.FrequencyCorrector", return_value=sentinel.corrector)
-    def test_route_with_api_key_passes_a_routing_session(
-        self, _corrector, _which, run_in_pty
-    ) -> None:
-        with (
-            patch.dict("os.environ", {"TYPESAFE_API_KEY": "test-key"}),
-            patch("sidequest.routing.screen.VirtualScreen"),
-            patch("sidequest.routing.classifier.JevClassifier"),
-        ):
-            self.assertEqual(main(["--route", "claude"]), 0)
-        router = run_in_pty.call_args.kwargs["router"]
-        self.assertIsNotNone(router)
-        self.assertTrue(router.enabled)
-
     def test_rejects_unsupported_application(self) -> None:
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
@@ -219,6 +185,115 @@ class CliTests(unittest.TestCase):
             custom_corrections={"teh": "the"},
             abbreviations={"pr": "pull request", "rt": "run tests"},
         )
+
+
+class RoutingCliTests(unittest.TestCase):
+    """How --route, --no-route and `sidequest setup` decide whether routing runs."""
+
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.config_home = Path(directory.name)
+        self.config = self.config_home / "sidequest" / "config.json"
+        environment = patch.dict("os.environ", {"XDG_CONFIG_HOME": directory.name}, clear=True)
+        environment.start()
+        self.addCleanup(environment.stop)
+        for target, kwargs in (
+            ("sidequest.cli.shutil.which", {"return_value": "/usr/local/bin/claude"}),
+            ("sidequest.cli.FrequencyCorrector", {"return_value": sentinel.corrector}),
+            ("sidequest.routing.screen.VirtualScreen", {}),
+            ("sidequest.routing.classifier.sdk_available", {"return_value": True}),
+            ("sidequest.routing.classifier.JevClassifier", {}),
+        ):
+            patcher = patch(target, **kwargs)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        run = patch("sidequest.cli.run_in_pty", return_value=0)
+        self.run_in_pty = run.start()
+        self.addCleanup(run.stop)
+
+    def enable_in_config(self) -> None:
+        self.config.parent.mkdir(parents=True)
+        self.config.write_text('{"routing": {"enabled": true}}', encoding="utf-8")
+
+    def routing_passed(self):
+        return self.run_in_pty.call_args.kwargs["router"]
+
+    def error_from(self, argv: list[str]) -> str:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            main(argv)
+        self.assertEqual(raised.exception.code, 2)
+        self.run_in_pty.assert_not_called()
+        return stderr.getvalue()
+
+    def test_routing_is_off_by_default(self) -> None:
+        main(["claude"])
+        self.assertIsNone(self.routing_passed())
+
+    def test_route_flag_without_a_key_is_an_error(self) -> None:
+        message = self.error_from(["--route", "claude"])
+        self.assertIn("TYPESAFE_API_KEY", message)
+        self.assertIn("sidequest setup", message)
+
+    def test_route_flag_with_an_environment_key_turns_routing_on(self) -> None:
+        with patch.dict("os.environ", {"TYPESAFE_API_KEY": "test-key"}):
+            main(["--route", "claude"])
+        self.assertIsNotNone(self.routing_passed())
+
+    def test_setup_turns_it_on_for_every_run_using_the_saved_key(self) -> None:
+        self.enable_in_config()
+        save_api_key(self.config, "saved-key")
+        main(["claude"])
+        self.assertIsNotNone(self.routing_passed())
+
+    def test_enabled_without_a_key_says_how_to_fix_it_or_skip_it(self) -> None:
+        self.enable_in_config()
+        message = self.error_from(["claude"])
+        self.assertIn("sidequest setup", message)
+        self.assertIn("--no-route", message)
+
+    def test_no_route_skips_it_even_without_a_key(self) -> None:
+        self.enable_in_config()
+        main(["--no-route", "claude"])
+        self.assertIsNone(self.routing_passed())
+
+    def test_no_corrections_leaves_routing_off(self) -> None:
+        self.enable_in_config()
+        main(["--no-corrections", "claude"])
+        self.assertIsNone(self.routing_passed())
+
+    def test_route_and_no_route_conflict(self) -> None:
+        with self.assertRaises(SystemExit):
+            main(["--route", "--no-route", "claude"])
+
+    def test_a_key_file_other_users_can_read_is_refused(self) -> None:
+        self.enable_in_config()
+        save_api_key(self.config, "saved-key").chmod(0o644)
+        self.assertIn("chmod 600", self.error_from(["claude"]))
+
+    def test_missing_packages_are_reported_with_the_fix(self) -> None:
+        self.enable_in_config()
+        save_api_key(self.config, "saved-key")
+        with patch("sidequest.routing.classifier.sdk_available", return_value=False):
+            message = self.error_from(["claude"])
+        self.assertIn("pipx inject sidequest pyte typesafe-sdk", message)
+
+    def test_setup_needs_a_terminal(self) -> None:
+        self.assertIn("interactive terminal", self.error_from(["setup"]))
+
+    def test_setup_runs_the_wizard(self) -> None:
+        with (
+            patch("sidequest.cli.sys.stdin.isatty", return_value=True),
+            patch("sidequest.cli.sys.stdout.isatty", return_value=True),
+            patch("sidequest.routing.wizard.run_setup", return_value=0) as wizard,
+        ):
+            self.assertEqual(main(["setup"]), 0)
+        wizard.assert_called_once_with(None)
+
+    def test_setup_accepts_only_config_alongside_it(self) -> None:
+        self.assertIn("only be combined with --config", self.error_from(["--route", "setup"]))
+        self.assertIn("does not accept", self.error_from(["setup", "claude"]))
 
 
 if __name__ == "__main__":
