@@ -10,6 +10,42 @@ from sidequest.updater import UpdateError, UpdateResult
 
 
 class CliTests(unittest.TestCase):
+    @patch("sidequest.cli.run_in_pty")
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/claude")
+    def test_route_without_api_key_is_an_error(self, _which, run_in_pty) -> None:
+        stderr = io.StringIO()
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            contextlib.redirect_stderr(stderr),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            main(["--route", "claude"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("TYPESAFE_API_KEY", stderr.getvalue())
+        run_in_pty.assert_not_called()
+
+    def test_route_cannot_be_combined_with_update(self) -> None:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            main(["--route", "update"])
+        self.assertEqual(raised.exception.code, 2)
+
+    @patch("sidequest.cli.run_in_pty", return_value=0)
+    @patch("sidequest.cli.shutil.which", return_value="/usr/local/bin/claude")
+    @patch("sidequest.cli.FrequencyCorrector", return_value=sentinel.corrector)
+    def test_route_with_api_key_passes_a_routing_session(
+        self, _corrector, _which, run_in_pty
+    ) -> None:
+        with (
+            patch.dict("os.environ", {"TYPESAFE_API_KEY": "test-key"}),
+            patch("sidequest.routing.screen.VirtualScreen"),
+            patch("sidequest.routing.classifier.JevClassifier"),
+        ):
+            self.assertEqual(main(["--route", "claude"]), 0)
+        router = run_in_pty.call_args.kwargs["router"]
+        self.assertIsNotNone(router)
+        self.assertTrue(router.enabled)
+
     def test_rejects_unsupported_application(self) -> None:
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
@@ -34,6 +70,7 @@ class CliTests(unittest.TestCase):
             corrector=sentinel.corrector,
             on_user_input=None,
             on_child_output=None,
+            router=None,
         )
 
     @patch("sidequest.cli.run_in_pty", return_value=0)
@@ -47,6 +84,7 @@ class CliTests(unittest.TestCase):
             corrector=None,
             on_user_input=None,
             on_child_output=None,
+            router=None,
         )
 
     @patch("sidequest.lifecycle.prepare_agent_command", return_value=["codex", "prepared"])
@@ -78,6 +116,7 @@ class CliTests(unittest.TestCase):
             corrector=unittest.mock.ANY,
             on_user_input=lifecycle.user_input,
             on_child_output=lifecycle.child_output,
+            router=None,
         )
         companion.close.assert_called_once_with()
 

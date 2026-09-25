@@ -10,12 +10,15 @@ ACTIVE_ENVIRONMENT = "/example/pipx/venvs/sidequest"
 APP_PATH = f"{ACTIVE_ENVIRONMENT}/bin/cauto"
 
 
-def pipx_listing(version: str = "0.2.1", app_path: object = APP_PATH) -> str:
+def pipx_listing(
+    version: str = "0.2.1", app_path: object = APP_PATH, injected: tuple[str, ...] = ()
+) -> str:
     return json.dumps(
         {
             "venvs": {
                 "sidequest": {
                     "metadata": {
+                        "injected_packages": {name: {} for name in injected},
                         "main_package": {
                             "app_paths": [{"__Path__": app_path}],
                             "package": "sidequest",
@@ -55,6 +58,42 @@ class UpdaterTests(unittest.TestCase):
                 call([PIPX, "list", "--json"], check=False, capture_output=True, text=True),
             ],
         )
+
+    @patch("sidequest.updater.sys.prefix", ACTIVE_ENVIRONMENT)
+    @patch("sidequest.updater.shutil.which", return_value=PIPX)
+    @patch("sidequest.updater.subprocess.run")
+    def test_restores_injected_packages_after_the_reinstall(self, run, _which) -> None:
+        run.side_effect = [
+            completed(stdout=pipx_listing("0.2.1", injected=("pyte", "typesafe-sdk"))),
+            completed(),
+            completed(stdout=pipx_listing("0.2.2")),
+            completed(),
+        ]
+
+        update_with_pipx()
+
+        self.assertEqual(
+            run.call_args_list[-1],
+            call([PIPX, "inject", "sidequest", "pyte", "typesafe-sdk"], check=False),
+        )
+
+    @patch("sidequest.updater.sys.prefix", ACTIVE_ENVIRONMENT)
+    @patch("sidequest.updater.shutil.which", return_value=PIPX)
+    @patch("sidequest.updater.subprocess.run")
+    def test_says_how_to_recover_when_restoring_injected_packages_fails(
+        self, run, _which
+    ) -> None:
+        run.side_effect = [
+            completed(stdout=pipx_listing("0.2.1", injected=("pyte",))),
+            completed(),
+            completed(stdout=pipx_listing("0.2.2")),
+            completed(returncode=1),
+        ]
+
+        with self.assertRaises(UpdateError) as raised:
+            update_with_pipx()
+
+        self.assertIn("pipx inject sidequest pyte", str(raised.exception))
 
     @patch("sidequest.updater.shutil.which", return_value=None)
     def test_requires_pipx(self, _which) -> None:

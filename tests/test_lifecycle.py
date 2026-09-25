@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 from sidequest.lifecycle import (
     AgentLifecycle,
+    ComposerTracker,
     _contains_codex_prompt,
     _contains_osc9,
     prepare_agent_command,
@@ -132,6 +133,35 @@ class LifecycleTests(unittest.TestCase):
         )
         self.assertEqual(hooks["Stop"][0]["hooks"][0]["url"], "http://local/stop")
         self.assertEqual(hooks["PermissionRequest"][0]["hooks"][0]["url"], "http://local/stop")
+
+
+class ComposerTrackerTests(unittest.TestCase):
+    def test_reports_submitted_text_and_that_the_cursor_was_at_the_end(self) -> None:
+        tracker = ComposerTracker()
+        self.assertEqual(tracker.feed(b"fix the bug\r"), 1)
+        self.assertEqual(tracker.submitted, [(b"fix the bug", True)])
+
+    def test_pasted_text_and_multiline_prompts_are_kept(self) -> None:
+        tracker = ComposerTracker()
+        tracker.feed(b"\x1b[200~line one\nline two\x1b[201~\r")
+        self.assertEqual(tracker.submitted, [(b"line one\nline two", True)])
+
+    def test_moving_the_cursor_marks_the_prompt_as_not_at_the_end(self) -> None:
+        for keys in (b"\x1b[D", b"\x1b[H", b"\x01", b"\x1bb", b"\x1b[3~"):
+            with self.subTest(keys=keys):
+                tracker = ComposerTracker()
+                tracker.feed(b"some prompt" + keys + b"\r")
+                self.assertFalse(tracker.submitted[0][1])
+
+    def test_at_end_recovers_after_the_box_is_emptied(self) -> None:
+        tracker = ComposerTracker()
+        tracker.feed(b"abc\x1b[D\x15next prompt\r")
+        self.assertEqual(tracker.submitted, [(b"next prompt", True)])
+
+    def test_slash_commands_are_not_prompts(self) -> None:
+        tracker = ComposerTracker()
+        self.assertEqual(tracker.feed(b"/model\r"), 0)
+        self.assertEqual(tracker.submitted, [])
 
 
 if __name__ == "__main__":
